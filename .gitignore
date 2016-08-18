@@ -1,0 +1,6 @@
+.idea/*
+.vimrc
+__pycache__
+.venv
+resonances_ml.egg-info/
+.python-version
