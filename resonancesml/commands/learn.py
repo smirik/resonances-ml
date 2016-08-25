@@ -35,6 +35,11 @@ def _classify(clf: ClassifierMixin, kf: cross_validation.KFold, X: np.ndarray, Y
     precisions = []
     recalls = []
     scores = []
+
+    TPs = []
+    FPs = []
+    TNs = []
+    FNs = []
     for train_index, test_index in kf:
         X_train = X[train_index]
         Y_train = Y[train_index]
@@ -46,7 +51,15 @@ def _classify(clf: ClassifierMixin, kf: cross_validation.KFold, X: np.ndarray, Y
         precisions.append(precision_score(Y_test, res))
         recalls.append(recall_score(Y_test, res))
         scores.append(accuracy_score(Y_test, res))
-    return np.mean(precisions), np.mean(recalls), np.mean(scores)
+        TP, FP, TN, FN = _perf_measure(Y_test, res)
+
+        TPs.append(TP)
+        FPs.append(FP)
+        TNs.append(TN)
+        FNs.append(FN)
+
+    return (np.mean(precisions), np.mean(recalls), np.mean(scores),
+            np.mean(TPs), np.mean(FPs), np.mean(TNs), np.mean(FNs))
 
 
 def _get_headers(indices: List[int]) -> List[str]:
@@ -61,6 +74,27 @@ def _get_headers(indices: List[int]) -> List[str]:
     for index in indices:
         res.append(headers[index])
     return res
+
+def _perf_measure(y_actual, y_hat):
+    TP = 0
+    FP = 0
+    TN = 0
+    FN = 0
+
+    for i in range(len(y_hat)):
+        if y_actual[i]==y_hat[i]==1:
+           TP += 1
+    for i in range(len(y_hat)):
+        if y_actual[i]==1 and y_actual[i]!=y_hat[i]:
+           FP += 1
+    for i in range(len(y_hat)):
+        if y_actual[i]==y_hat[i]==0:
+           TN += 1
+    for i in range(len(y_hat)):
+        if y_actual[i]==0 and y_actual[i]!=y_hat[i]:
+           FN += 1
+
+    return(TP, FP, TN, FN)
 
 
 def learn(librate_list: str):
@@ -77,11 +111,11 @@ def learn(librate_list: str):
 
     learn_feature_set = syntetic_elems.values[:slice_len]  # type: np.ndarray
     table = Texttable(max_width=120)
-    table.header(['Classifier', 'Input data (fields)', 'precision', 'recall', 'accuracy'])
-    table.set_cols_width([30, 30, 15, 15, 15])
-    table.set_precision(len(indices_cases) * 5)
+    table.header(['Classifier', 'Input data (fields)', 'precision', 'recall', 'accuracy', 'TP', 'FP', 'TN', 'FN'])
+    table.set_cols_width([30, 30, 15, 15, 15, 5, 5, 5, 5])
+    table.set_precision(5)
 
-    bar = ProgressBar(10, 'Learning', 1)
+    bar = ProgressBar(len(indices_cases) * 5, 'Learning', 1)
 
     for indices in indices_cases:
         classifiers = {
@@ -97,8 +131,9 @@ def learn(librate_list: str):
             X = get_feuture_matrix(learn_feature_set, False, indices)
 
             kf = cross_validation.KFold(X.shape[0], 5, shuffle=True, random_state=42)
-            precision, recall, accuracy = _classify(clf, kf, X, Y)
-            table.add_row([name, ', '.join(headers), precision, recall, accuracy])
+            precision, recall, accuracy, TP, FP, TN, FN = _classify(clf, kf, X, Y)
+            table.add_row([name, ', '.join(headers), precision, recall, accuracy,
+                           int(TP), int(FP), int(TN), int(FN)])
             bar.update()
 
     print('\n')
