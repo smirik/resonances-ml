@@ -7,19 +7,16 @@ from sklearn.base import ClassifierMixin
 from sklearn.neighbors import KNeighborsClassifier
 from sklearn.tree import DecisionTreeClassifier
 from sklearn.ensemble import GradientBoostingClassifier
-from sklearn.preprocessing import StandardScaler
-from resonancesml.settings import PROJECT_DIR
-from os.path import join as opjoin
+from resonancesml.shortcuts import get_target_vector
+from resonancesml.shortcuts import get_feuture_matrix
 import pandas
+from resonancesml.settings import CATALOG_PATH
 from pandas import DataFrame
 from sklearn.linear_model import LogisticRegression
 from sklearn import cross_validation
 from sklearn.metrics import precision_score
 from sklearn.metrics import recall_score
 from sklearn.metrics import accuracy_score
-
-
-CATALOG_PATH = opjoin(PROJECT_DIR, '..', 'input', 'all.syn')
 
 
 def _validate(data: DataFrame):
@@ -31,22 +28,6 @@ def _validate(data: DataFrame):
 
     if flag:
         raise Exception('syntetic elements has nan values')
-
-
-def _get_target_vector(from_asteroids: np.ndarray, by_features: np.ndarray) -> np.ndarray:
-    target_vector = []
-    for i, asteroid_number in enumerate(by_features[:, 0]):
-        target_vector.append(asteroid_number in from_asteroids)
-    return np.array(target_vector, dtype=np.float64)
-
-
-def _get_feuture_matrix(from_features: np.ndarray, scale: bool, indices: List[int]) -> np.ndarray:
-    res = from_features[: ,indices]
-    #res = from_features[: ,2:6]
-    if scale:
-        scaler = StandardScaler()
-        res = scaler.fit_transform(res)
-    return res
 
 
 def _classify(clf: ClassifierMixin, kf: cross_validation.KFold, X: np.ndarray, Y: np.ndarray)\
@@ -112,11 +93,8 @@ def learn(librate_list: str):
         }
         for name, clf in classifiers.items():
             headers = _get_headers(indices)
-            Y = _get_target_vector(librated_asteroids, learn_feature_set.astype(int))
-            X = _get_feuture_matrix(learn_feature_set, False, indices)
-
-            #import ipdb
-            #ipdb.set_trace()
+            Y = get_target_vector(librated_asteroids, learn_feature_set.astype(int))
+            X = get_feuture_matrix(learn_feature_set, False, indices)
 
             kf = cross_validation.KFold(X.shape[0], 5, shuffle=True, random_state=42)
             precision, recall, accuracy = _classify(clf, kf, X, Y)
