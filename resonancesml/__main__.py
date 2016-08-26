@@ -1,17 +1,21 @@
 #!/usr/bin/env python
 import click
+from resonancesml.commands.learn import Catalog
 
 
 @click.group()
 def main():
     pass
 
-
 @main.command()
 @click.option('--librate-list', '-l', type=click.Path(exists=True, resolve_path=True))
-def learn(librate_list: str):
-    from resonancesml.commands.learn import learn as _learn
-    _learn(librate_list)
+@click.option('--catalog', '-c', type=click.Choice([x.name for x in Catalog]))
+def learn(librate_list: str, catalog: str):
+    from resonancesml.commands.learn import MethodComparer
+    from resonancesml.commands.learn import get_tester_parameters
+    parameters = get_tester_parameters(Catalog(catalog))
+    tester = MethodComparer(librate_list, parameters)
+    tester.learn()
 
 
 @main.command()

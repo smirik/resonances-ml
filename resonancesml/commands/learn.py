@@ -10,11 +10,14 @@ from sklearn.ensemble import GradientBoostingClassifier
 from resonancesml.shortcuts import get_target_vector
 from resonancesml.shortcuts import get_feuture_matrix
 import pandas
-from resonancesml.settings import CATALOG_PATH
 from pandas import DataFrame
 from sklearn.linear_model import LogisticRegression
 from sklearn import cross_validation
 
+from enum import Enum
+from enum import unique
+from settings import SYN_CATALOG_PATH
+from settings import CAT_CATALOG_PATH
 
 def _validate(data: DataFrame):
     flag = False
@@ -60,16 +63,16 @@ def _classify(clf: ClassifierMixin, kf: cross_validation.KFold, X: np.ndarray, Y
             np.sum(TPs), np.sum(FPs), np.sum(TNs), np.sum(FNs))
 
 
-def _get_headers(indices: List[int]) -> List[str]:
+def _get_headers(from_catalog_path:str, by_indices: List[int]) -> List[str]:
     headers = []
-    with open(CATALOG_PATH) as f:
+    with open(from_catalog_path) as f:
         for i, line in enumerate(f):
             if i == 1:
                 headers = [x.strip() for x in line.split('  ') if x]
             elif i > 1:
                 break
     res = []
-    for index in indices:
+    for index in by_indices:
         res.append(headers[index])
     return res
 
@@ -96,46 +99,72 @@ def _perf_measure(y_actual, y_hat):
     return(TP, FP, TN, FN)
 
 
-def learn(librate_list: str):
-    indices_cases = [
-        [2,3,4],
-        [2,3,4,5]
-    ]
-    librated_asteroids = np.loadtxt(librate_list, dtype=int)
-    slice_len = int(librated_asteroids[-1])
-    dtype = {0:str}
-    dtype.update({x: float for x in range(1,10)})
-    syntetic_elems = pandas.read_csv(CATALOG_PATH, delim_whitespace=True,  # type: DataFrame
-                                     skiprows=2, header=None, dtype=dtype)
+@unique
+class Catalog(Enum):
+    syn = 'syn'
+    cat = 'cat'
 
-    learn_feature_set = syntetic_elems.values[:slice_len]  # type: np.ndarray
-    table = Texttable(max_width=120)
-    table.header(['Classifier', 'Input data (fields)', 'precision', 'recall',
-                  'accuracy', 'TP', 'FP', 'TN', 'FN'])
-    table.set_cols_width([30, 30, 15, 15, 15, 5, 5, 5, 5])
-    table.set_precision(5)
 
-    bar = ProgressBar(len(indices_cases) * 5, 'Learning', 1)
+class TesterParameters:
+    def __init__(self, indices_cases: List[List[int]], catalog_path: str,
+                 catalog_width: int):
+        self.indices_cases = indices_cases
+        self.catalog_path = catalog_path
+        self.catalog_width = catalog_width
 
-    for indices in indices_cases:
-        classifiers = {
-            'Decision tree': DecisionTreeClassifier(random_state=241),
-            'Gradient boosting (10 trees)': GradientBoostingClassifier(n_estimators=10),
-            'Gradient boosting (50 trees)': GradientBoostingClassifier(n_estimators=50),
-            'K neighbors': KNeighborsClassifier(weights='distance', p=1, n_jobs=4),
-            'Logistic regression': LogisticRegression(C=10)
-        }
-        for name, clf in classifiers.items():
-            headers = _get_headers(indices)
-            Y = get_target_vector(librated_asteroids, learn_feature_set.astype(int))
-            X = get_feuture_matrix(learn_feature_set, False, indices)
 
-            kf = cross_validation.KFold(X.shape[0], 5, shuffle=True, random_state=42)
-            precision, recall, accuracy, TP, FP, TN, FN = _classify(clf, kf, X, Y)
-            table.add_row([name, ', '.join(headers), precision, recall, accuracy,
-                           int(TP), int(FP), int(TN), int(FN)])
-            bar.update()
+def get_tester_parameters(catalog: Catalog) -> TesterParameters:
+    return {
+        Catalog.syn: TesterParameters([[2,3,4],[2,3,4,5]], SYN_CATALOG_PATH, 10),
+        Catalog.cat: TesterParameters([[2,3,4],[2,3,4,5]], CAT_CATALOG_PATH, 11),
+    }[catalog]
 
-    print('\n')
-    print(table.draw())
-    print('Dataset for used for learning and testing by k-fold cross-validation: %d' % Y.shape)
+
+class MethodComparer:
+    def __init__(self, librate_list: str, parameters: TesterParameters):
+        dtype = {0:str}
+        dtype.update({x: float for x in range(1,parameters.catalog_width)})
+        self._catalog_feautures = pandas.read_csv(  # type: DataFrame
+            parameters.catalog_path, delim_whitespace=True, skiprows=2, header=None, dtype=dtype)
+        self._librated_asteroids = np.loadtxt(librate_list, dtype=int)
+        self._indices_cases = parameters.indices_cases
+        self._catalog_path = parameters.catalog_path
+
+    def learn(self):
+        slice_len = int(self._librated_asteroids[-1])
+        dtype = {0:str}
+        dtype.update({x: float for x in range(1,10)})
+        syntetic_elems = pandas.read_csv(self._catalog_path, delim_whitespace=True,  # type: DataFrame
+                                         skiprows=2, header=None, dtype=dtype)
+
+        learn_feature_set = syntetic_elems.values[:slice_len]  # type: np.ndarray
+        table = Texttable(max_width=120)
+        table.header(['Classifier', 'Input data (fields)', 'precision', 'recall',
+                      'accuracy', 'TP', 'FP', 'TN', 'FN'])
+        table.set_cols_width([30, 30, 15, 15, 15, 5, 5, 5, 5])
+        table.set_precision(5)
+
+        bar = ProgressBar(len(self._indices_cases) * 5, 'Learning', 1)
+
+        for indices in self._indices_cases:
+            classifiers = {
+                'Decision tree': DecisionTreeClassifier(random_state=241),
+                'Gradient boosting (10 trees)': GradientBoostingClassifier(n_estimators=10),
+                'Gradient boosting (50 trees)': GradientBoostingClassifier(n_estimators=50),
+                'K neighbors': KNeighborsClassifier(weights='distance', p=1, n_jobs=4),
+                'Logistic regression': LogisticRegression(C=10)
+            }
+            for name, clf in classifiers.items():
+                headers = _get_headers(self._catalog_path, indices)
+                Y = get_target_vector(self._librated_asteroids, learn_feature_set.astype(int))
+                X = get_feuture_matrix(learn_feature_set, False, indices)
+
+                kf = cross_validation.KFold(X.shape[0], 5, shuffle=True, random_state=42)
+                precision, recall, accuracy, TP, FP, TN, FN = _classify(clf, kf, X, Y)
+                table.add_row([name, ', '.join(headers), precision, recall, accuracy,
+                               int(TP), int(FP), int(TN), int(FN)])
+                bar.update()
+
+        print('\n')
+        print(table.draw())
+        print('Dataset for used for learning and testing by k-fold cross-validation: %d' % Y.shape)
