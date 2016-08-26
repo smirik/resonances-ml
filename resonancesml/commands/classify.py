@@ -15,7 +15,7 @@ def classify(librate_list: str, all_librated: str):
 
     all_librated_asteroids = np.loadtxt(all_librated, dtype=int)
 
-    clf = KNeighborsClassifier(weights='distance', p=100, n_jobs=4)
+    clf = KNeighborsClassifier(weights='distance', p=1, n_jobs=4)
     dtype = {0:str}
     dtype.update({x: float for x in range(1,10)})
     syntetic_elems = pandas.read_csv(CATALOG_PATH, delim_whitespace=True,  # type: DataFrame

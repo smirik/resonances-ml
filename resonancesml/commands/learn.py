@@ -14,9 +14,6 @@ from resonancesml.settings import CATALOG_PATH
 from pandas import DataFrame
 from sklearn.linear_model import LogisticRegression
 from sklearn import cross_validation
-from sklearn.metrics import precision_score
-from sklearn.metrics import recall_score
-from sklearn.metrics import accuracy_score
 
 
 def _validate(data: DataFrame):
@@ -48,10 +45,11 @@ def _classify(clf: ClassifierMixin, kf: cross_validation.KFold, X: np.ndarray, Y
 
         clf.fit(X_train, Y_train)
         res = clf.predict(X_test)  # type: np.ndarray
-        precisions.append(precision_score(Y_test, res))
-        recalls.append(recall_score(Y_test, res))
-        scores.append(accuracy_score(Y_test, res))
-        TP, FP, TN, FN = _perf_measure(Y_test, res)
+        TP, FP, TN, FN = _perf_measure(res, Y_test)
+
+        precisions.append(TP/(TP+FP) if TP+FP != 0 else 0)
+        recalls.append(TP/(TP+FN) if TP+FN != 0 else 0)
+        scores.append((TN+TP)/(TN+TP+FN+FP))
 
         TPs.append(TP)
         FPs.append(FP)
@@ -59,7 +57,7 @@ def _classify(clf: ClassifierMixin, kf: cross_validation.KFold, X: np.ndarray, Y
         FNs.append(FN)
 
     return (np.mean(precisions), np.mean(recalls), np.mean(scores),
-            np.mean(TPs), np.mean(FPs), np.mean(TNs), np.mean(FNs))
+            np.sum(TPs), np.sum(FPs), np.sum(TNs), np.sum(FNs))
 
 
 def _get_headers(indices: List[int]) -> List[str]:
@@ -74,6 +72,7 @@ def _get_headers(indices: List[int]) -> List[str]:
     for index in indices:
         res.append(headers[index])
     return res
+
 
 def _perf_measure(y_actual, y_hat):
     TP = 0
@@ -111,7 +110,8 @@ def learn(librate_list: str):
 
     learn_feature_set = syntetic_elems.values[:slice_len]  # type: np.ndarray
     table = Texttable(max_width=120)
-    table.header(['Classifier', 'Input data (fields)', 'precision', 'recall', 'accuracy', 'TP', 'FP', 'TN', 'FN'])
+    table.header(['Classifier', 'Input data (fields)', 'precision', 'recall',
+                  'accuracy', 'TP', 'FP', 'TN', 'FN'])
     table.set_cols_width([30, 30, 15, 15, 15, 5, 5, 5, 5])
     table.set_precision(5)
 
@@ -122,7 +122,7 @@ def learn(librate_list: str):
             'Decision tree': DecisionTreeClassifier(random_state=241),
             'Gradient boosting (10 trees)': GradientBoostingClassifier(n_estimators=10),
             'Gradient boosting (50 trees)': GradientBoostingClassifier(n_estimators=50),
-            'K neighbors': KNeighborsClassifier(weights='distance', p=100, n_jobs=4),
+            'K neighbors': KNeighborsClassifier(weights='distance', p=1, n_jobs=4),
             'Logistic regression': LogisticRegression(C=10)
         }
         for name, clf in classifiers.items():
