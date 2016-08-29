@@ -1,0 +1,11 @@
+.vimrc-python3
+*.pyc
+.idea/*
+.vimrc
+__pycache__
+.venv
+resonances_ml.egg-info/
+.python-version
+.git
+.gitignore
+Dockerfile
