@@ -17,8 +17,8 @@ from sklearn import cross_validation
 
 from enum import Enum
 from enum import unique
-from settings import SYN_CATALOG_PATH
-from settings import CAT_CATALOG_PATH
+from resonancesml.settings import SYN_CATALOG_PATH
+from resonancesml.settings import CAT_CATALOG_PATH
 
 def _validate(data: DataFrame):
     flag = False
