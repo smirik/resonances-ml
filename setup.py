@@ -8,5 +8,12 @@ setup(
     license='',
     author='ANtlord',
     author_email='',
-    description=''
+    description='',
+    install_requires = [
+        'click==6.6',
+        'scikit-learn==0.17.1',
+        'numpy==1.11.1',
+        'scipy==0.18.0',
+        'texttable==0.8.4'
+    ],
 )
