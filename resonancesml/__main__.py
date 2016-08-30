@@ -28,6 +28,7 @@ def learn(librate_list: str, catalog: str):
     }
     tester = MethodComparer(librate_list, parameters)
     tester.set_methods(classifiers)
+
     tester.learn()
 
 

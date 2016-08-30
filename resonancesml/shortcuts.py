@@ -34,7 +34,7 @@ def get_target_vector(from_asteroids: np.ndarray, by_features: np.ndarray) -> np
 
 
 def get_feuture_matrix(from_features: np.ndarray, scale: bool, indices: List[int]) -> np.ndarray:
-    res = from_features[: ,indices]
+    res = np.array(from_features[: ,indices], dtype=np.float64)  # type: np.ndarray
     #res = from_features[: ,2:6]
     if scale:
         scaler = StandardScaler()
