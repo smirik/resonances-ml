@@ -15,6 +15,11 @@ You need python 3.5.1 and pip to install this application.
 By default the application contains catalog of symthetic elements `input` folder with name `all.syn`.
 You can replace this catalog by your catalog with same name.
 
+## Catalog of orbital elements
+
+By default the application contains catalog of orbital elements `input` folder with name `allnum.cat`.
+You can replace this catalog by your catalog with same name.
+
 ## File with number asteroids that librates
 
 You need file, that contains asteroid numbers, that librates, to create learning dataset.
