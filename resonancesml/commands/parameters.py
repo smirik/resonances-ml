@@ -1,5 +1,6 @@
 from resonancesml.settings import SYN_CATALOG_PATH
 from resonancesml.settings import CAT_CATALOG_PATH
+from resonancesml.settings import PRO_CATALOG_PATH
 
 from typing import List
 
@@ -14,6 +15,7 @@ from .datainjection import KeplerInjection
 class Catalog(Enum):
     syn = 'syn'
     cat = 'cat'
+    pro = 'pro'
 
 
 class TesterParameters:
@@ -29,8 +31,9 @@ class TesterParameters:
 
 def get_learn_parameters(catalog: Catalog) -> TesterParameters:
     return {
-        Catalog.syn: TesterParameters([[2,3,4],[2,3,4,5]], SYN_CATALOG_PATH, 10, '  ', 2),
+        Catalog.syn: TesterParameters([[2,3,4], [2,3,4,5]], SYN_CATALOG_PATH, 10, '  ', 2),
         Catalog.cat: TesterParameters([[2,3,8], [2,3,4,8]], CAT_CATALOG_PATH, 8, ', ', 6, KeplerInjection(['n'])),
+        Catalog.pro: TesterParameters([[1,2,3], [1,2,3,4]], PRO_CATALOG_PATH, 8, '; ', 6),
     }[catalog]
 
 
@@ -39,6 +42,7 @@ def get_classify_all_parameters(catalog: Catalog) -> TesterParameters:
         Catalog.syn: TesterParameters([[2,3,4,5]], SYN_CATALOG_PATH, 10, '  ', 2),
         Catalog.cat: TesterParameters([[2,3,4,8], [2,3,8]], CAT_CATALOG_PATH,
                                       8, ', ', 6, KeplerInjection(['n'])),
+        Catalog.pro: TesterParameters([[1,2,3,4]], PRO_CATALOG_PATH, 8, '; ', 6),
     }[catalog]
 
 
@@ -48,5 +52,6 @@ def get_compare_parameters(catalog: Catalog) -> TesterParameters:
                                       SYN_CATALOG_PATH, 10, '  ', 2),
         Catalog.cat: TesterParameters([[2,3,4],[2,3,8],[2,4,8],[3,4,8],[2,8]],
                                       CAT_CATALOG_PATH, 8, ', ', 6, KeplerInjection(['n'])),
+        Catalog.pro: TesterParameters([[1,2,3],[1,2,4],[1,3,4],[2,3,4],[1,4]], PRO_CATALOG_PATH, 8, ';', 6),
     }[catalog]
 
