@@ -79,8 +79,8 @@ class MethodComparer:
             for i, line in enumerate(f):
                 if i == header_line_number:
                     headers = [x.strip() for x in line.split(self._parameters.delimiter) if x]
-                    if self._parameters.injector:
-                        headers += self._parameters.injector.headers
+                    if self._parameters.injection:
+                        headers += self._parameters.injection.headers
                 elif i > header_line_number:
                     break
         res = []
@@ -107,8 +107,8 @@ class MethodComparer:
 
         for indices in self._parameters.indices_cases:
 
-            if self._parameters.injector:
-                learn_feature_set = self._parameters.injector.update_data(learn_feature_set)
+            if self._parameters.injection:
+                learn_feature_set = self._parameters.injection.update_data(learn_feature_set)
 
             headers = self._get_headers(indices)
             X = get_feuture_matrix(learn_feature_set, False, indices)
