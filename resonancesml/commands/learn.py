@@ -10,11 +10,7 @@ import pandas
 from pandas import DataFrame
 from sklearn import cross_validation
 
-from enum import Enum
-from enum import unique
-from resonancesml.settings import SYN_CATALOG_PATH
-from resonancesml.settings import CAT_CATALOG_PATH
-from abc import abstractclassmethod
+from .parameters import TesterParameters
 
 from typing import Tuple
 from sklearn.base import ClassifierMixin
@@ -30,11 +26,6 @@ def _validate(data: DataFrame):
     if flag:
         raise Exception('syntetic elements has nan values')
 
-
-@unique
-class Catalog(Enum):
-    syn = 'syn'
-    cat = 'cat'
 
 
 def _classify(clf: ClassifierMixin, kf: cross_validation.KFold, X: np.ndarray, Y: np.ndarray)\
@@ -70,40 +61,6 @@ def _classify(clf: ClassifierMixin, kf: cross_validation.KFold, X: np.ndarray, Y
             np.sum(TPs), np.sum(FPs), np.sum(TNs), np.sum(FNs))
 
 
-class ADatasetInjector:
-    def __init__(self, headers: List[str]):
-        self.headers = headers
-
-    @abstractclassmethod
-    def update_data(self, X: np.ndarray) -> np.ndarray:
-        pass
-
-
-class TesterParameters:
-    def __init__(self, indices_cases: List[List[int]], catalog_path: str,
-                 catalog_width: int, delimiter: str, skiprows: int, injector: ADatasetInjector = None):
-        self.indices_cases = indices_cases
-        self.catalog_path = catalog_path
-        self.catalog_width = catalog_width
-        self.delimiter = delimiter
-        self.skiprows = skiprows
-        self.injector = injector
-
-
-class KeplerInjector(ADatasetInjector):
-    def update_data(self, X: np.ndarray) -> np.ndarray:
-        mean_motions = np.sqrt([0.0002959122082855911025 / X[:,0] ** 3.])
-        X = np.hstack((X, mean_motions.T))
-        return X
-
-
-def get_tester_parameters(catalog: Catalog) -> TesterParameters:
-    return {
-        Catalog.syn: TesterParameters([[2,3,4],[2,3,4,5]], SYN_CATALOG_PATH, 10, '  ', 2),
-        Catalog.cat: TesterParameters([[2,3,4]], CAT_CATALOG_PATH, 11, ', ', 6, KeplerInjector(['n'])),
-    }[catalog]
-
-
 class MethodComparer:
     def __init__(self, librate_list: str, parameters: TesterParameters):
         dtype = {0:str}
@@ -122,6 +79,8 @@ class MethodComparer:
             for i, line in enumerate(f):
                 if i == header_line_number:
                     headers = [x.strip() for x in line.split(self._parameters.delimiter) if x]
+                    if self._parameters.injector:
+                        headers += self._parameters.injector.headers
                 elif i > header_line_number:
                     break
         res = []
@@ -147,12 +106,12 @@ class MethodComparer:
         Y = get_target_vector(self._librated_asteroids, learn_feature_set.astype(int))
 
         for indices in self._parameters.indices_cases:
-            headers = self._get_headers(indices)
-            X = get_feuture_matrix(learn_feature_set, False, indices)
 
             if self._parameters.injector:
-                headers += self._parameters.injector.headers
-                X = self._parameters.injector.update_data(X)
+                learn_feature_set = self._parameters.injector.update_data(learn_feature_set)
+
+            headers = self._get_headers(indices)
+            X = get_feuture_matrix(learn_feature_set, False, indices)
 
             for name, clf in self._classifiers.items():
                 kf = cross_validation.KFold(X.shape[0], 5, shuffle=True, random_state=42)

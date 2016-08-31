@@ -18,5 +18,3 @@ def perf_measure(y_actual, y_hat):
            FN += 1
 
     return(TP, FP, TN, FN)
-
-
