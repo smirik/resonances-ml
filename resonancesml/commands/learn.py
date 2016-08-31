@@ -2,14 +2,14 @@ import numpy as np
 from resonancesml.shortcuts import ProgressBar
 from texttable import Texttable
 from typing import List
+import re
 from typing import Dict
 from resonancesml.shortcuts import get_target_vector
 from resonancesml.shortcuts import get_feuture_matrix
 from .shortcuts import perf_measure
-import pandas
 from pandas import DataFrame
 from sklearn import cross_validation
-
+from .reader import CatalogReader
 from .parameters import TesterParameters
 
 from typing import Tuple
@@ -63,11 +63,8 @@ def _classify(clf: ClassifierMixin, kf: cross_validation.KFold, X: np.ndarray, Y
 
 class MethodComparer:
     def __init__(self, librate_list: str, parameters: TesterParameters):
-        dtype = {0:str}
-        dtype.update({x: float for x in range(1,parameters.catalog_width)})
-        self._catalog_feautures = pandas.read_csv(  # type: DataFrame
-            parameters.catalog_path, delim_whitespace=True,
-            skiprows=parameters.skiprows, header=None, dtype=dtype)
+        self._reader = CatalogReader(parameters.catalog_path, parameters.catalog_width,
+                                     parameters.skiprows)
         self._librated_asteroids = np.loadtxt(librate_list, dtype=int)
         self._parameters = parameters
         self._classifiers = None  # type: Dict[str, ClassifierMixin]
@@ -78,9 +75,12 @@ class MethodComparer:
         with open(self._parameters.catalog_path) as f:
             for i, line in enumerate(f):
                 if i == header_line_number:
-                    headers = [x.strip() for x in line.split(self._parameters.delimiter) if x]
-                    if self._parameters.injector:
-                        headers += self._parameters.injector.headers
+                    replace_regex = re.compile("\([^\(]*\)")
+                    line = replace_regex.sub(' ', line)
+                    delimiter_regex = re.compile(self._parameters.delimiter)
+                    headers = [x.strip() for x in delimiter_regex.split(line) if x]
+                    if self._parameters.injection:
+                        headers += self._parameters.injection.headers
                 elif i > header_line_number:
                     break
         res = []
@@ -94,7 +94,7 @@ class MethodComparer:
     def learn(self):
         slice_len = int(self._librated_asteroids[-1])
 
-        learn_feature_set = self._catalog_feautures.values[:slice_len]  # type: np.ndarray
+        learn_feature_set =  self._reader.get_feuture_matrix(slice_len)  # type: np.ndarray
         table = Texttable(max_width=120)
         table.header(['Classifier', 'Input data (fields)', 'precision', 'recall',
                       'accuracy', 'TP', 'FP', 'TN', 'FN'])
@@ -107,8 +107,8 @@ class MethodComparer:
 
         for indices in self._parameters.indices_cases:
 
-            if self._parameters.injector:
-                learn_feature_set = self._parameters.injector.update_data(learn_feature_set)
+            if self._parameters.injection:
+                learn_feature_set = self._parameters.injection.update_data(learn_feature_set)
 
             headers = self._get_headers(indices)
             X = get_feuture_matrix(learn_feature_set, False, indices)

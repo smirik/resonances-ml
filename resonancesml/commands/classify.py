@@ -1,4 +1,5 @@
 from sklearn.neighbors import KNeighborsClassifier
+from sklearn.ensemble import GradientBoostingClassifier
 from sklearn.tree import DecisionTreeClassifier
 import pandas
 from pandas import DataFrame
@@ -40,6 +41,7 @@ def classify_all(librate_list: str, all_librated: str, parameters: TesterParamet
     classifiers = {
         'Decision tree': DecisionTreeClassifier(random_state=241),
         'K neighbors': KNeighborsClassifier(weights='distance', p=1, n_jobs=4),
+        'Gradient boosting (10 trees)': GradientBoostingClassifier(n_estimators=10),
     }
     dtype = {0:str}
     dtype.update({x: float for x in range(1, parameters.catalog_width)})
@@ -47,12 +49,16 @@ def classify_all(librate_list: str, all_librated: str, parameters: TesterParamet
         parameters.catalog_path, delim_whitespace=True,
         skiprows=parameters.skiprows, header=None, dtype=dtype)
 
+    catalog_feautures = parameters.injection.update_data(catalog_feautures)
+
     slice_len = int(librated_asteroids[-1])
     learn_feature_set = catalog_feautures.values[:slice_len]  # type: np.ndarray
     test_feature_set = catalog_feautures.values[:400000]  # type: np.ndarray
 
 
     for indices in parameters.indices_cases:
+        import ipdb
+        ipdb.set_trace()
         Y = get_target_vector(librated_asteroids, learn_feature_set.astype(int))
         X = get_feuture_matrix(learn_feature_set, False, indices)
 
