@@ -112,8 +112,6 @@ class MethodComparer:
         Y = get_target_vector(self._librated_asteroids, learn_feature_set.astype(int))
 
         for indices in self._parameters.indices_cases:
-            import ipdb
-            ipdb.set_trace()
             headers = self._get_headers(indices)
             X = get_feuture_matrix(learn_feature_set, False, indices)
 

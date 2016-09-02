@@ -18,7 +18,7 @@ def _get_classifiers():
         'Decision tree': DecisionTreeClassifier(random_state=241, max_depth=5),
         'Gradient boosting (10 trees)': GradientBoostingClassifier(n_estimators=10),
         'Gradient boosting (50 trees)': GradientBoostingClassifier(n_estimators=50),
-        'K neighbors': KNeighborsClassifier(weights='distance', p=2, n_jobs=4),
+        'K neighbors': KNeighborsClassifier(weights='distance', p=4, n_jobs=4),
         'Logistic regression': LogisticRegression(C=0.00001, penalty='l1', n_jobs=4)
     }
     return classifiers
@@ -60,6 +60,19 @@ def classify_all(librate_list: str, all_librated: str, catalog: str):
     from resonancesml.commands.parameters import get_classify_all_parameters
     parameters = get_classify_all_parameters(Catalog(catalog))
     _classify_all(librate_list, all_librated, parameters)
+
+
+@main.command(name='clear-classify-all')
+@click.option('--all-librated', '-a', type=click.Path(exists=True, resolve_path=True))
+@click.option('--catalog', '-c', type=click.Choice([x.name for x in Catalog]))
+@click.option('--resonant-axis', '-x', type=float)
+@click.option('--axis-swing', '-s', type=float)
+@click.option('--axis-index', '-i', type=int)
+def clear_classify_all(all_librated: str, catalog: str, resonant_axis, axis_swing, axis_index):
+    from resonancesml.commands.classify import clear_classify_all as _clear_classify_all
+    from resonancesml.commands.parameters import get_clear_learn_parameters
+    parameters = get_clear_learn_parameters(Catalog(catalog), resonant_axis, axis_swing, axis_index)
+    _clear_classify_all(all_librated, parameters)
 
 
 @main.command(name='compare-fields-valuable')

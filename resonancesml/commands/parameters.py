@@ -31,8 +31,8 @@ class TesterParameters:
 def get_clear_learn_parameters(catalog: Catalog, resonant_axis: float, axis_swing: float,
                                axis_index: int) -> TesterParameters:
     return {
-        catalog.syn: TesterParameters([[2,3,4],[2,3,5, 10, 11, 12]], SYN_CATALOG_PATH, 10, '  ', 2,
-                                      ClearInjection(['p1','p2','asteroid'], resonant_axis, axis_swing, axis_index)),
+        catalog.syn: TesterParameters([[2,3,4],[2,3,5]], SYN_CATALOG_PATH, 10, '  ', 2,
+                                      ClearInjection([], resonant_axis, axis_swing, axis_index)),
     }[catalog]
 
 
