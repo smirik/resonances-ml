@@ -75,6 +75,7 @@ def _classify_all(datasets: _DataSets, parameters: TesterParameters):
         datasets.learn_feature_set = parameters.injection.update_data(datasets.learn_feature_set)
         datasets.test_feature_set = parameters.injection.update_data(datasets.test_feature_set)
 
+    data = []
     for indices in parameters.indices_cases:
         X = get_feuture_matrix(datasets.learn_feature_set, False, indices)
         Y = get_target_vector(datasets.librated_asteroids, datasets.learn_feature_set.astype(int))
@@ -85,7 +86,13 @@ def _classify_all(datasets: _DataSets, parameters: TesterParameters):
 
         for name, clf in classifiers.items():
             precision, recall, accuracy, TP, FP, TN, FN = _classify(clf, X, Y, X_test, Y_test)
+            data.append('%s;%s;%s' % (name, TP, FP))
+            data.append('%s;%s;%s' % (name, TN, FN))
             table.add_row([name, precision, recall, accuracy, TP, FP, TN, FN])
+
+    with open('data.csv', 'w') as f:
+        for item in data:
+            f.write('%s\n' % item)
 
     print('\n')
     print(table.draw())

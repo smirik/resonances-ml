@@ -111,6 +111,7 @@ class MethodComparer:
             learn_feature_set = self._parameters.injection.update_data(learn_feature_set)
         Y = get_target_vector(self._librated_asteroids, learn_feature_set.astype(int))
 
+        data = []
         for indices in self._parameters.indices_cases:
             headers = self._get_headers(indices)
             X = get_feuture_matrix(learn_feature_set, False, indices)
@@ -118,9 +119,15 @@ class MethodComparer:
             for name, clf in self._classifiers.items():
                 kf = cross_validation.KFold(X.shape[0], 5, shuffle=True, random_state=42)
                 precision, recall, accuracy, TP, FP, TN, FN = _classify(clf, kf, X, Y)
+                data.append('%s;%s;%s' % (name, TP, FP))
+                data.append('%s;%s;%s' % (name, TN, FN))
                 table.add_row([name, ', '.join(headers), precision, recall, accuracy,
                                int(TP), int(FP), int(TN), int(FN)])
                 bar.update()
+
+        with open('data.csv', 'w') as f:
+            for item in data:
+                f.write('%s\n' % item)
 
         print('\n')
         print(table.draw())
