@@ -14,14 +14,22 @@ def _get_classifiers():
     from sklearn.ensemble import GradientBoostingClassifier
     from sklearn.linear_model import LogisticRegression
 
+    keys = [
+        'K neighbors',
+        'Gradient boosting (10 trees)',
+        'Gradient boosting (50 trees)',
+        'Decision tree',
+        'Logistic regression',
+    ]
+
     classifiers = {
-        'Decision tree': DecisionTreeClassifier(random_state=241, max_depth=5),
+        'K neighbors': KNeighborsClassifier(weights='distance', p=1, n_jobs=4),
         'Gradient boosting (10 trees)': GradientBoostingClassifier(n_estimators=10),
         'Gradient boosting (50 trees)': GradientBoostingClassifier(n_estimators=50),
-        'K neighbors': KNeighborsClassifier(weights='distance', p=4, n_jobs=4),
+        'Decision tree': DecisionTreeClassifier(random_state=241),
         'Logistic regression': LogisticRegression(C=0.00001, penalty='l1', n_jobs=4)
     }
-    return classifiers
+    return classifiers, keys
 
 
 @main.command()
@@ -32,7 +40,7 @@ def learn(librate_list: str, catalog: str):
     from resonancesml.commands.parameters import get_learn_parameters
     parameters = get_learn_parameters(Catalog(catalog))
     tester = MethodComparer(librate_list, parameters)
-    tester.set_methods(_get_classifiers())
+    tester.set_methods(*(_get_classifiers()))
     tester.learn()
 
 
@@ -47,7 +55,7 @@ def clear_learn(librate_list: str, catalog: str, resonant_axis: float, axis_swin
     from resonancesml.commands.parameters import get_clear_learn_parameters
     parameters = get_clear_learn_parameters(Catalog(catalog), resonant_axis, axis_swing, axis_index)
     tester = MethodComparer(librate_list, parameters)
-    tester.set_methods(_get_classifiers())
+    tester.set_methods(*(_get_classifiers()))
     tester.learn()
 
 
@@ -68,11 +76,12 @@ def classify_all(librate_list: str, all_librated: str, catalog: str):
 @click.option('--resonant-axis', '-x', type=float)
 @click.option('--axis-swing', '-s', type=float)
 @click.option('--axis-index', '-i', type=int)
-def clear_classify_all(all_librated: str, catalog: str, resonant_axis, axis_swing, axis_index):
+@click.option('--train-length', '-n', type=int)
+def clear_classify_all(all_librated: str, catalog: str, resonant_axis, axis_swing, axis_index, train_length):
     from resonancesml.commands.classify import clear_classify_all as _clear_classify_all
     from resonancesml.commands.parameters import get_clear_learn_parameters
     parameters = get_clear_learn_parameters(Catalog(catalog), resonant_axis, axis_swing, axis_index)
-    _clear_classify_all(all_librated, parameters)
+    _clear_classify_all(all_librated, parameters, train_length)
 
 
 @main.command(name='compare-fields-valuable')
@@ -94,7 +103,7 @@ def compare_fields_valuable(librate_list: str, catalog: str, model: str):
 
     classifiers = { model: model_obj }
     tester = MethodComparer(librate_list, parameters)
-    tester.set_methods(classifiers)
+    tester.set_methods(classifiers, [model])
     tester.learn()
 
 

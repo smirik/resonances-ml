@@ -31,14 +31,14 @@ class TesterParameters:
 def get_clear_learn_parameters(catalog: Catalog, resonant_axis: float, axis_swing: float,
                                axis_index: int) -> TesterParameters:
     return {
-        catalog.syn: TesterParameters([[2,3,4],[2,3,5]], SYN_CATALOG_PATH, 10, '  ', 2,
+        catalog.syn: TesterParameters([[2,3,4,5],[2,3,5]], SYN_CATALOG_PATH, 10, '  ', 2,
                                       ClearInjection([], resonant_axis, axis_swing, axis_index)),
     }[catalog]
 
 
 def get_learn_parameters(catalog: Catalog) -> TesterParameters:
     return {
-        catalog.syn: TesterParameters([[2,3,4],[2,3,4,5]], SYN_CATALOG_PATH, 10, '  ', 2),
+        catalog.syn: TesterParameters([[2,3,4],[2,3,4,5],[2,3,5]], SYN_CATALOG_PATH, 10, '  ', 2),
         catalog.cat: TesterParameters([[2,3,8], [2,3,4,8]], CAT_CATALOG_PATH,
                                       8, ', ', 6, KeplerInjection(['n'])),
     }[catalog]
@@ -46,7 +46,7 @@ def get_learn_parameters(catalog: Catalog) -> TesterParameters:
 
 def get_classify_all_parameters(catalog: Catalog) -> TesterParameters:
     return {
-        Catalog.syn: TesterParameters([[2,3,4,5]], SYN_CATALOG_PATH, 10, '  ', 2),
+        Catalog.syn: TesterParameters([[2,3,4,5], [2,3,5]], SYN_CATALOG_PATH, 10, '  ', 2),
         Catalog.cat: TesterParameters([[2,3,4,8], [2,3,8]], CAT_CATALOG_PATH,
                                       8, ', ', 6, KeplerInjection(['n'])),
     }[catalog]

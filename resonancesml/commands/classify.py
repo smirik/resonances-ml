@@ -47,12 +47,15 @@ def _get_datasets(librate_list: str, all_librated: str, parameters: TesterParame
     dtype.update({x: float for x in range(1, parameters.catalog_width)})
     catalog_feautures = pandas.read_csv(  # type: DataFrame
         parameters.catalog_path, delim_whitespace=True,
-        skiprows=parameters.skiprows, header=None, dtype=dtype)
+        skiprows=parameters.skiprows, header=None, dtype=dtype).values
+
+    if parameters.injection:
+        catalog_feautures = parameters.injection.update_data(catalog_feautures[:400000])
 
     if slice_len is None:
         slice_len = int(librated_asteroids[-1])
-    learn_feature_set = catalog_feautures.values[:slice_len]  # type: np.ndarray
-    test_feature_set = catalog_feautures.values[:400000]  # type: np.ndarray
+    learn_feature_set = catalog_feautures[:slice_len]  # type: np.ndarray
+    test_feature_set = catalog_feautures[slice_len:8300]  # type: np.ndarray
     return _DataSets(librated_asteroids, learn_feature_set,
                      all_librated_asteroids, test_feature_set)
 
@@ -71,9 +74,6 @@ def _classify_all(datasets: _DataSets, parameters: TesterParameters):
         'Decision tree': DecisionTreeClassifier(random_state=241),
         'K neighbors': KNeighborsClassifier(weights='distance', p=1, n_jobs=4),
     }
-    if parameters.injection:
-        datasets.learn_feature_set = parameters.injection.update_data(datasets.learn_feature_set)
-        datasets.test_feature_set = parameters.injection.update_data(datasets.test_feature_set)
 
     data = []
     for indices in parameters.indices_cases:
@@ -87,8 +87,9 @@ def _classify_all(datasets: _DataSets, parameters: TesterParameters):
         for name, clf in classifiers.items():
             precision, recall, accuracy, TP, FP, TN, FN = _classify(clf, X, Y, X_test, Y_test)
             data.append('%s;%s;%s' % (name, TP, FP))
-            data.append('%s;%s;%s' % (name, TN, FN))
+            data.append('%s;%s;%s' % (name, FN, TN))
             table.add_row([name, precision, recall, accuracy, TP, FP, TN, FN])
+
 
     with open('data.csv', 'w') as f:
         for item in data:
@@ -96,13 +97,13 @@ def _classify_all(datasets: _DataSets, parameters: TesterParameters):
 
     print('\n')
     print(table.draw())
+    print('resonant %i' % Y[Y==1].shape[0])
+    print('learn %i' % datasets.learn_feature_set.shape[0])
+    print('total %i' % (datasets.learn_feature_set.shape[0] + datasets.test_feature_set.shape[0]))
 
 
-LEARN_DATA_LEN = 50000
-
-
-def clear_classify_all(all_librated: str, parameters: TesterParameters):
-    datasets = _get_datasets(all_librated, all_librated, parameters, LEARN_DATA_LEN)
+def clear_classify_all(all_librated: str, parameters: TesterParameters, length):
+    datasets = _get_datasets(all_librated, all_librated, parameters, length)
     _classify_all(datasets, parameters)
 
 
