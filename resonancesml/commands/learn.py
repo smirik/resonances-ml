@@ -1,5 +1,6 @@
 import numpy as np
 from resonancesml.shortcuts import ProgressBar
+import re
 from texttable import Texttable
 from typing import List
 from typing import Dict
@@ -78,7 +79,10 @@ class MethodComparer:
         with open(self._parameters.catalog_path) as f:
             for i, line in enumerate(f):
                 if i == header_line_number:
-                    headers = [x.strip() for x in line.split(self._parameters.delimiter) if x]
+                    replace_regex = re.compile("\([^\(]*\)")
+                    line = replace_regex.sub(' ', line)
+                    delimiter_regex = re.compile(self._parameters.delimiter)
+                    headers = [x.strip() for x in delimiter_regex.split(line) if x]
                     if self._parameters.injection:
                         headers += self._parameters.injection.headers
                 elif i > header_line_number:
