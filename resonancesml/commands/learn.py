@@ -72,6 +72,7 @@ class MethodComparer:
         self._librated_asteroids = np.loadtxt(librate_list, dtype=int)
         self._parameters = parameters
         self._classifiers = None  # type: Dict[str, ClassifierMixin]
+        self._keys = None
 
     def _get_headers(self, by_indices: List[int]) -> List[str]:
         headers = []
@@ -92,8 +93,10 @@ class MethodComparer:
             res.append(headers[index])
         return res
 
-    def set_methods(self, values: Dict[str, ClassifierMixin]):
+    def set_methods(self, values: Dict[str, ClassifierMixin], keys):
         self._classifiers = values
+        self._keys = keys
+
 
     def learn(self):
         slice_len = int(self._librated_asteroids[-1])
@@ -107,22 +110,28 @@ class MethodComparer:
 
         bar = ProgressBar(len(self._parameters.indices_cases) * len(self._classifiers),
                           'Learning', 1)
+        if self._parameters.injection:
+            learn_feature_set = self._parameters.injection.update_data(learn_feature_set)
         Y = get_target_vector(self._librated_asteroids, learn_feature_set.astype(int))
 
+        data = []
         for indices in self._parameters.indices_cases:
-
-            if self._parameters.injection:
-                learn_feature_set = self._parameters.injection.update_data(learn_feature_set)
-
             headers = self._get_headers(indices)
             X = get_feuture_matrix(learn_feature_set, False, indices)
 
-            for name, clf in self._classifiers.items():
+            for name in self._keys:
+                clf = self._classifiers[name]
                 kf = cross_validation.KFold(X.shape[0], 5, shuffle=True, random_state=42)
                 precision, recall, accuracy, TP, FP, TN, FN = _classify(clf, kf, X, Y)
+                data.append('%s;%s;%s' % (name, TP, FP))
+                data.append('%s;%s;%s' % (name, FN, TN))
                 table.add_row([name, ', '.join(headers), precision, recall, accuracy,
                                int(TP), int(FP), int(TN), int(FN)])
                 bar.update()
+
+        with open('data.csv', 'w') as f:
+            for item in data:
+                f.write('%s\n' % item)
 
         print('\n')
         print(table.draw())
