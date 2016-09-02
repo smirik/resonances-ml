@@ -20,7 +20,7 @@ def learn(librate_list: str, catalog: str):
 
     parameters = get_learn_parameters(Catalog(catalog))
     classifiers = {
-        'Decision tree': DecisionTreeClassifier(random_state=241),
+        'Decision tree': DecisionTreeClassifier(random_state=241, max_depth=5),
         'Gradient boosting (10 trees)': GradientBoostingClassifier(n_estimators=10),
         'Gradient boosting (50 trees)': GradientBoostingClassifier(n_estimators=50),
         'K neighbors': KNeighborsClassifier(weights='distance', p=1, n_jobs=4),
@@ -57,7 +57,7 @@ def compare_fields_valuable(librate_list: str, catalog: str, model: str):
 
     model_obj = {
         'KNN': KNeighborsClassifier(weights='distance', p=1, n_jobs=4),
-        'DT': DecisionTreeClassifier(random_state=241)
+        'DT': DecisionTreeClassifier(random_state=241, max_depth=5)
     }[model]
 
     classifiers = { model: model_obj }

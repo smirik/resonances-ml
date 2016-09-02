@@ -38,7 +38,7 @@ def classify_all(librate_list: str, all_librated: str, parameters: TesterParamet
     librated_asteroids = np.loadtxt(librate_list, dtype=int)
     all_librated_asteroids = np.loadtxt(all_librated, dtype=int)
     classifiers = {
-        'Decision tree': DecisionTreeClassifier(random_state=241),
+        'Decision tree': DecisionTreeClassifier(random_state=241, max_depth=5),
         'K neighbors': KNeighborsClassifier(weights='distance', p=1, n_jobs=4),
     }
     dtype = {0:str}
@@ -52,6 +52,7 @@ def classify_all(librate_list: str, all_librated: str, parameters: TesterParamet
     test_feature_set = catalog_feautures.values[:400000]  # type: np.ndarray
 
 
+    data = []  # type: List[str]
     for indices in parameters.indices_cases:
         Y = get_target_vector(librated_asteroids, learn_feature_set.astype(int))
         X = get_feuture_matrix(learn_feature_set, False, indices)
@@ -62,9 +63,15 @@ def classify_all(librate_list: str, all_librated: str, parameters: TesterParamet
         for name, clf in classifiers.items():
             precision, recall, accuracy, TP, FP, TN, FN = _classify(clf, X, Y, X_test, Y_test)
 
+            data.append('%s;%s;%s' % (name, TP, FP))
+            data.append('%s;%s;%s' % (name, FN, TN))
             table.add_row([
                 name, precision, recall, accuracy, TP, FP, TN, FN
             ])
+
+    with open('data.csv', 'w') as f:
+        for item in data:
+            f.write('%s\n' % item)
 
     print('\n')
     print(table.draw())
