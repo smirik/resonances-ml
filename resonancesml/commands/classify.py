@@ -1,5 +1,6 @@
 from sklearn.neighbors import KNeighborsClassifier
 from sklearn.tree import DecisionTreeClassifier
+from sklearn.ensemble import GradientBoostingClassifier
 import pandas
 from pandas import DataFrame
 from typing import Tuple
@@ -11,7 +12,6 @@ from sklearn.metrics import precision_score
 from sklearn.metrics import recall_score
 from sklearn.metrics import accuracy_score
 from texttable import Texttable
-
 from sklearn.base import ClassifierMixin
 
 from .parameters import TesterParameters
@@ -55,7 +55,7 @@ def _get_datasets(librate_list: str, all_librated: str, parameters: TesterParame
     if slice_len is None:
         slice_len = int(librated_asteroids[-1])
     learn_feature_set = catalog_feautures[:slice_len]  # type: np.ndarray
-    test_feature_set = catalog_feautures[slice_len:8300]  # type: np.ndarray
+    test_feature_set = catalog_feautures[slice_len:400000]  # type: np.ndarray
     return _DataSets(librated_asteroids, learn_feature_set,
                      all_librated_asteroids, test_feature_set)
 
@@ -73,6 +73,7 @@ def _classify_all(datasets: _DataSets, parameters: TesterParameters):
     classifiers = {
         'Decision tree': DecisionTreeClassifier(random_state=241),
         'K neighbors': KNeighborsClassifier(weights='distance', p=1, n_jobs=4),
+        'GB': GradientBoostingClassifier(n_estimators=7, learning_rate=0.6, min_samples_split=150),
     }
 
     data = []
@@ -83,6 +84,7 @@ def _classify_all(datasets: _DataSets, parameters: TesterParameters):
         X_test = get_feuture_matrix(datasets.test_feature_set, False, indices)
         Y_test = get_target_vector(datasets.all_librated_asteroids,
                                    datasets.test_feature_set.astype(int))
+
 
         for name, clf in classifiers.items():
             precision, recall, accuracy, TP, FP, TN, FN = _classify(clf, X, Y, X_test, Y_test)
