@@ -8,7 +8,6 @@ from enum import unique
 
 from .datainjection import ADatasetInjection
 from .datainjection import KeplerInjection
-from .datainjection import ClearInjection
 
 
 @unique
@@ -28,35 +27,50 @@ class TesterParameters:
         self.injection = injection
 
 
-def get_clear_learn_parameters(catalog: Catalog, resonant_axis: float, axis_swing: float,
-                               axis_index: int) -> TesterParameters:
+def get_injection(by_catalog: Catalog) -> ADatasetInjection:
+    injection =  {
+        by_catalog.syn: None,
+        by_catalog.cat: KeplerInjection(['n'])
+    }[by_catalog]
+    return injection
+
+
+
+def get_learn_parameters(catalog: Catalog, injection: ADatasetInjection,
+                               indices: List[List[int]] = None) -> TesterParameters:
     return {
-        catalog.syn: TesterParameters([[2,3,4,5],[2,3,5]], SYN_CATALOG_PATH, 10, '  ', 2,
-                                      ClearInjection([], resonant_axis, axis_swing, axis_index)),
+        catalog.syn: TesterParameters(
+            [[2,3,4,5],[2,3,5]] if not indices else indices,
+            SYN_CATALOG_PATH, 10, '  ', 2, injection),
+        catalog.cat: TesterParameters(
+            [[2, 3, 10], [2, 3, 4, 10]] if not indices else indices,
+            CAT_CATALOG_PATH, 8, "\.|,", 6, injection),
     }[catalog]
 
 
-def get_learn_parameters(catalog: Catalog) -> TesterParameters:
-    return {
-        catalog.syn: TesterParameters([[2,3,4],[2,3,4,5],[2,3,5]], SYN_CATALOG_PATH, 10, '  ', 2),
-        catalog.cat: TesterParameters([[2,3,8], [2,3,4,8]], CAT_CATALOG_PATH,
-                                      8, ', ', 6, KeplerInjection(['n'])),
-    }[catalog]
+#def get_learn_parameters(catalog: Catalog, injection: ADatasetInjection) -> TesterParameters:
+    #return {
+        #catalog.syn: TesterParameters([[2,3,4],[2,3,4,5],[2,3,5]], SYN_CATALOG_PATH,
+                                      #10, '  ', 2),
+        #catalog.cat: TesterParameters([[2,3,8], [2,3,4,8]], CAT_CATALOG_PATH,
+                                      #8, "\.|,", 6, injection),
+    #}[catalog]
 
 
-def get_classify_all_parameters(catalog: Catalog) -> TesterParameters:
+def get_classify_all_parameters(catalog: Catalog, injection: ADatasetInjection) -> TesterParameters:
     return {
-        Catalog.syn: TesterParameters([[2,3,4,5], [2,3,5]], SYN_CATALOG_PATH, 10, '  ', 2),
+        Catalog.syn: TesterParameters([[2,3,4,5], [2,3,5]], SYN_CATALOG_PATH,
+                                      10, '  ', 2, injection),
         Catalog.cat: TesterParameters([[2,3,4,8], [2,3,8]], CAT_CATALOG_PATH,
-                                      8, ', ', 6, KeplerInjection(['n'])),
+                                      8, ', ', 6, injection),
     }[catalog]
 
 
-def get_compare_parameters(catalog: Catalog) -> TesterParameters:
+def get_compare_parameters(catalog: Catalog, injection: ADatasetInjection) -> TesterParameters:
     return {
         Catalog.syn: TesterParameters([[2,3,4],[2,3,5],[2,4,5],[3,4,5],[2,5]],
-                                      SYN_CATALOG_PATH, 10, '  ', 2),
+                                      SYN_CATALOG_PATH, 10, '  ', 2, injection),
         Catalog.cat: TesterParameters([[2,3,4],[2,3,8],[2,4,8],[3,4,8],[2,8]],
-                                      CAT_CATALOG_PATH, 8, ', ', 6, KeplerInjection(['n'])),
+                                      CAT_CATALOG_PATH, 8, ', ', 6, injection),
     }[catalog]
 
