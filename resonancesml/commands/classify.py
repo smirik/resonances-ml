@@ -39,10 +39,7 @@ class _DataSets:
         self.test_feature_set = test_feature_set
 
 
-def _get_datasets(librate_list: str, all_librated: str, parameters: TesterParameters,
-                  slice_len: int = None) -> _DataSets:
-    librated_asteroids = np.loadtxt(librate_list, dtype=int)
-    all_librated_asteroids = np.loadtxt(all_librated, dtype=int)
+def _get_feature_matricies(parameters: TesterParameters, slice_len: int):
     dtype = {0:str}
     dtype.update({x: float for x in range(1, parameters.catalog_width)})
     catalog_feautures = pandas.read_csv(  # type: DataFrame
@@ -52,10 +49,18 @@ def _get_datasets(librate_list: str, all_librated: str, parameters: TesterParame
     if parameters.injection:
         catalog_feautures = parameters.injection.update_data(catalog_feautures[:400000])
 
-    if slice_len is None:
-        slice_len = int(librated_asteroids[-1])
     learn_feature_set = catalog_feautures[:slice_len]  # type: np.ndarray
     test_feature_set = catalog_feautures[slice_len:400000]  # type: np.ndarray
+    return learn_feature_set, test_feature_set
+
+
+def _get_datasets(librate_list: str, all_librated: str, parameters: TesterParameters,
+                  slice_len: int = None) -> _DataSets:
+    librated_asteroids = np.loadtxt(librate_list, dtype=int)
+    all_librated_asteroids = np.loadtxt(all_librated, dtype=int)
+    if slice_len is None:
+        slice_len = int(librated_asteroids[-1])
+    learn_feature_set, test_feature_set = _get_feature_matricies(parameters, slice_len)
     return _DataSets(librated_asteroids, learn_feature_set,
                      all_librated_asteroids, test_feature_set)
 
@@ -85,7 +90,6 @@ def _classify_all(datasets: _DataSets, parameters: TesterParameters):
         Y_test = get_target_vector(datasets.all_librated_asteroids,
                                    datasets.test_feature_set.astype(int))
 
-
         for name, clf in classifiers.items():
             precision, recall, accuracy, TP, FP, TN, FN = _classify(clf, X, Y, X_test, Y_test)
             data.append('%s;%s;%s' % (name, TP, FP))
@@ -102,6 +106,15 @@ def _classify_all(datasets: _DataSets, parameters: TesterParameters):
     print('resonant %i' % Y[Y==1].shape[0])
     print('learn %i' % datasets.learn_feature_set.shape[0])
     print('total %i' % (datasets.learn_feature_set.shape[0] + datasets.test_feature_set.shape[0]))
+
+
+def classify_all_resonances(parameters: TesterParameters, length: int):
+    learnset, trainset = _get_feature_matricies(parameters, length)
+    X_train = learnset[:,0:-1]
+    X_test = trainset[:,0:-1]
+    Y_train = learnset[:,-1]
+    Y_test = trainset[:,-1]
+
 
 
 def clear_classify_all(all_librated: str, parameters: TesterParameters, length):
