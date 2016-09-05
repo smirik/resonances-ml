@@ -184,16 +184,17 @@ def clear_influence_fields(librate_list: str, catalog: str, model: str,
 
 @main.command(name='total-classify')
 @click.option('--train-length', '-n', type=int)
+@click.option('--data-length', '-l', type=int)
 @click.option('--matrix-path', '-p', type=click.Path(resolve_path=True, exists=True))
 @click.option('--librations-folder', '-f', type=click.Path(resolve_path=True, exists=True))
 @click.option('--clear-cache', '-c', type=bool, is_flag=True)
-def total_classify(train_length: int, matrix_path: str, librations_folder, clear_cache):
+def total_classify(train_length: int, matrix_path: str, librations_folder, clear_cache, data_length: None):
     from resonancesml.commands.datainjection import IntegersInjection
     from resonancesml.commands.parameters import get_learn_parameters
     from resonancesml.commands.classify import classify_all_resonances
     injection = IntegersInjection(['p1', 'p2', 'asteroid'], matrix_path, 2, librations_folder, clear_cache)
     parameters = get_learn_parameters(Catalog('syn'), injection)
-    classify_all_resonances(parameters, train_length)
+    classify_all_resonances(parameters, train_length, data_length)
 
 
 if __name__ == '__main__':

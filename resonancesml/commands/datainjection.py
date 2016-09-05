@@ -66,7 +66,6 @@ class ClearKeplerInjection(KeplerInjection):
         X = super(ClearKeplerInjection, self).update_data(X)
         return X
 
-
 class IntegersInjection(ADatasetInjection):
     """
     InegersInjection adds integers satisfying D'Alambert of every resonance
@@ -80,6 +79,10 @@ class IntegersInjection(ADatasetInjection):
         self._axis_index = axis_index
         self._librations_folder = librations_folder
         self._clear_cache = clear_cache
+        self._data_len = None
+
+    def set_data_len(self, value):
+        self._data_len = value
 
     def update_data(self, X: np.ndarray) -> np.ndarray:
         cache_filepath = '/tmp/cache.txt'
@@ -91,12 +94,13 @@ class IntegersInjection(ADatasetInjection):
         if opexist(cache_filepath):
             print('dataset loaded from cache')
             res = np.loadtxt(cache_filepath)
-            return res
+            return res[:self._data_len]
 
         print('\n')
-        bar = ProgressBar(self._resonances.shape[0], 'Building dataset', 4)
+        bar = ProgressBar(self._resonances.shape[0], 'Building dataset', 8)
         res = np.zeros((1, X.shape[1] + 4))
         integers_len = 3
+        #librations_count = 0
         for resonance in self._resonances:
             bar.update()
             axis = resonance[6]
@@ -111,15 +115,26 @@ class IntegersInjection(ADatasetInjection):
             librated_asteroid_filepath = opjoin(self._librations_folder, filename)
             if opexist(librated_asteroid_filepath):
                 librated_asteroid_vector = np.loadtxt(librated_asteroid_filepath, dtype=int)
+                #if not len(librated_asteroid_vector.shape):
+                    #resonance_librations_count = 1
+                #else:
+                    #resonance_librations_count = librated_asteroid_vector.shape[0]
                 Y = get_target_vector(librated_asteroid_vector, feature_matrix.astype(int))
             else:
                 Y = np.zeros(feature_matrix.shape[0])
+                #resonance_librations_count = 0
+            #librations_count += resonance_librations_count
+            #feature_matrix = np.hstack((feature_matrix, np.repeat(resonance_librations_count, N).reshape(1, N).T))
             dataset = np.hstack((feature_matrix, np.array([Y]).T))
 
             res = np.vstack((res, dataset))
-        res = np.delete(res, 0, 0)
-        res = res.astype(float)
+
+        res = np.delete(res, 0, 0).astype(float)
+        #libration_probability_vector = np.array([res[:,-2] / librations_count]).T
+        #res = np.hstack((res, libration_probability_vector))
+        #res[:,[-1,-2]] = res[:,[-2,-1]]
         sorted_res = res[res[:,0].argsort()]
         np.savetxt(cache_filepath, sorted_res,
-                   fmt='%s %f %f %f %f %.18e %.18e %.18e %.18e %.18e %d %d %d %d')
-        return res
+                   fmt='%s %f %f %f %f %.18e %.18e %.18e %.18e %d %d %d %d %d')
+                   #fmt='%s %f %f %f %f %.18e %.18e %.18e %.18e %d %d %d %d %d %d %f')
+        return res[:self._data_len]

@@ -1,11 +1,16 @@
 from sklearn.neighbors import KNeighborsClassifier
+from sklearn.cross_validation import KFold
 from sklearn.tree import DecisionTreeClassifier
+from collections import defaultdict
 from sklearn.ensemble import GradientBoostingClassifier
+from sklearn.grid_search import GridSearchCV
+from sklearn.svm import SVC
 import pandas
 from pandas import DataFrame
 from typing import Tuple
 import numpy as np
 from .shortcuts import perf_measure
+from resonancesml.shortcuts import ProgressBar
 from resonancesml.shortcuts import get_target_vector
 from resonancesml.shortcuts import get_feuture_matrix
 from sklearn.metrics import precision_score
@@ -50,7 +55,7 @@ def _get_feature_matricies(parameters: TesterParameters, slice_len: int):
         catalog_feautures = parameters.injection.update_data(catalog_feautures[:400000])
 
     learn_feature_set = catalog_feautures[:slice_len]  # type: np.ndarray
-    test_feature_set = catalog_feautures[slice_len:400000]  # type: np.ndarray
+    test_feature_set = catalog_feautures[slice_len:]  # type: np.ndarray
     return learn_feature_set, test_feature_set
 
 
@@ -73,14 +78,30 @@ def _build_table() -> Texttable:
     return table
 
 
-def _classify_all(datasets: _DataSets, parameters: TesterParameters):
-    table = _build_table()
-    classifiers = {
-        'Decision tree': DecisionTreeClassifier(random_state=241),
-        'K neighbors': KNeighborsClassifier(weights='distance', p=1, n_jobs=4),
-        'GB': GradientBoostingClassifier(n_estimators=7, learning_rate=0.6, min_samples_split=150),
+def _get_classifiers():
+    from sklearn.linear_model import LogisticRegression
+    return {
+        #'Decision tree': DecisionTreeClassifier(random_state=241, max_depth=39),
+        #'K neighbors': KNeighborsClassifier(weights='distance', p=2, n_jobs=4, n_neighbors=5),
+        #'Logistic regression': LogisticRegression(C=0.1, penalty='l2', n_jobs=4),
+        #'Logistic regression1': LogisticRegression(C=1, penalty='l1', n_jobs=4)
+        #'GB1': GradientBoostingClassifier(n_estimators=200, learning_rate=0.6, min_samples_split=10000),
+        #'GB2': GradientBoostingClassifier(n_estimators=7, learning_rate=0.6, min_samples_split=15000),
+        #'GB1': GradientBoostingClassifier(
+            #n_estimators=200, learning_rate=0.6, min_samples_split=10*7, max_features=4, max_depth=5),
+        #'GB2': GradientBoostingClassifier(
+            #n_estimators=200, learning_rate=0.6, min_samples_split=10*9, max_features=4),
+        #'GB3': GradientBoostingClassifier(
+            #n_estimators=200, learning_rate=0.6, min_samples_split=10*9, max_features=4),
+        #'GB4': GradientBoostingClassifier(
+            #n_estimators=200, learning_rate=0.6, min_samples_split=10*9, max_features=4),
     }
 
+
+def _classify_all(datasets: _DataSets, parameters: TesterParameters):
+    table = _build_table()
+
+    classifiers = _get_classifiers()
     data = []
     for indices in parameters.indices_cases:
         X = get_feuture_matrix(datasets.learn_feature_set, False, indices)
@@ -108,13 +129,75 @@ def _classify_all(datasets: _DataSets, parameters: TesterParameters):
     print('total %i' % (datasets.learn_feature_set.shape[0] + datasets.test_feature_set.shape[0]))
 
 
-def classify_all_resonances(parameters: TesterParameters, length: int):
+def _get_librations_for_resonances(dataset: np.ndarray) -> defaultdict:
+    bar = ProgressBar(dataset.shape[0], 'Getting additional features',
+                      int(dataset.shape[0] / 80))
+    resonance_librations_counter = defaultdict(int)
+    for features in dataset:
+        bar.update()
+        resonance = str(features[-3:-1])
+        resonance_librations_counter[resonance] += features[-1]
+    return resonance_librations_counter
+
+
+def _update_feature_matrix(of_X: np.ndarray, by_libration_counters: defaultdict) -> np.ndarray:
+    bar = ProgressBar(of_X.shape[0], 'Update feature matrix', int(of_X.shape[0] / 80))
+    all_librations = sum([y for x, y in by_libration_counters.items()])
+    additional_features = np.array([[0, 0]])
+    for features in of_X:
+        bar.update()
+        resonance = str(features[-3:-1])
+        libration_count = by_libration_counters[resonance]
+        additional_features = np.vstack((
+            additional_features,
+            [libration_count, libration_count / all_librations]
+        ))
+
+    additional_features = np.delete(additional_features, 0, 0)
+    of_X = np.hstack((of_X, additional_features))
+    of_X[:,[-3,-2,-1]] = of_X[:,[-2,-1,-3]]
+    return of_X
+
+
+def classify_all_resonances(parameters: TesterParameters, length: int, data_len: int):
+    parameters.injection.set_data_len(data_len)
+    table = _build_table()
     learnset, trainset = _get_feature_matricies(parameters, length)
-    X_train = learnset[:,0:-1]
-    X_test = trainset[:,0:-1]
+    additional_features = _get_librations_for_resonances(learnset)
+    learnset = _update_feature_matrix(learnset, additional_features)
+    trainset = _update_feature_matrix(trainset, additional_features)
+
+    indices = [2, 3, 4, 5, -2,
+               -3, 6, 7, 1]
+    X_train = learnset[:,indices]
+    X_test = trainset[:,indices]
     Y_train = learnset[:,-1]
     Y_test = trainset[:,-1]
 
+    cv = KFold(learnset.shape[0], n_folds=2, random_state=241)
+    #classifiers = _get_classifiers()
+    #for name, clf in classifiers.items():
+    #clf = SVC(random_state=241)
+    #clf = KNeighborsClassifier(n_jobs=4)
+    #kwargs = {'n_estimators': 50, 'max_features': 2, 'learning_rate': 0.85, 'max_depth': None, 'min_samples_split': 10*7}
+    #kwargs = {'n_estimators': 500, 'learning_rate': 0.85, 'max_features': 4, 'min_samples_split': 30, 'max_depth': 5}
+
+    kwargs = {'max_features': 3 , 'n_estimators': 500 , 'max_depth': 3 , 'learning_rate': 0.85 , 'min_samples_split': 100}
+    #kwargs = {'max_features': 4 , 'n_estimators': 500 , 'max_depth': 3 , 'learning_rate': 0.85 , 'min_samples_split': 2}
+    clf = GradientBoostingClassifier(**kwargs)
+    #grid = {'C': np.power(10.0, np.arange(5, 7)), 'kernel': ['poly', 'sigmoid'], 'gamma': np.power(10.0, np.arange(-3, 3))}
+    #grid = {'n_neighbors': [3,5,7,9,11], 'p': [1,2,3]}
+    #grid = {'n_estimators': [50, 100, 500], 'learning_rate': [0.6, 0.85],
+            #'max_depth': [3, 5, 8, 10, 12], 'max_features': [None, 2, 3, 4, 5], 'min_samples_split': [2, 100, 500, 10*3, 10*5, 10*7]}
+    #gs = GridSearchCV(clf, grid, scoring='recall', cv=cv, verbose=2, n_jobs=4)
+    #gs.fit(np.vstack((X_train, X_test)), np.hstack((Y_train, Y_test)))
+    #import pprint
+    #pprint.pprint(gs.grid_scores_)
+    precision, recall, accuracy, TP, FP, TN, FN = _classify(clf, X_train, Y_train, X_test, Y_test)
+    table.add_row(['SVC', precision, recall, accuracy, TP, FP, TN, FN])
+
+    print('\n')
+    print(table.draw())
 
 
 def clear_classify_all(all_librated: str, parameters: TesterParameters, length):
