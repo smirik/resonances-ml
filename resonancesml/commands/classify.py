@@ -159,16 +159,45 @@ def _update_feature_matrix(of_X: np.ndarray, by_libration_counters: defaultdict)
     return of_X
 
 
+class TrainTestGenerator(object):
+    def __init__(self, X_train, X_test, Y_train, Y_test):
+        self.X_train = X_train
+        self.X_test = X_test
+        self.Y_train = Y_train
+        self.Y_test = Y_test
+
+        self.iterated = False
+
+    def __iter__(self):
+        return self
+
+    def __len__(self):
+        return 1
+
+    def __next__(self):
+        if self.iterated:
+            self.iterated = False
+            raise StopIteration
+        self.iterated = True
+        #, self.Y_train, self.Y_test
+        #self.X_train, self.X_test
+        shape1 = self.X_train.shape[0]
+        shape2 = self.X_test.shape[0]
+        return [x for x in range(shape1)], [x for x in range(shape1, shape1 + shape2)]
+
+
 def classify_all_resonances(parameters: TesterParameters, length: int, data_len: int):
     parameters.injection.set_data_len(data_len)
     table = _build_table()
     learnset, trainset = _get_feature_matricies(parameters, length)
-    additional_features = _get_librations_for_resonances(learnset)
-    learnset = _update_feature_matrix(learnset, additional_features)
-    trainset = _update_feature_matrix(trainset, additional_features)
+    #additional_features = _get_librations_for_resonances(learnset)
+    #learnset = _update_feature_matrix(learnset, additional_features)
+    #trainset = _update_feature_matrix(trainset, additional_features)
 
-    indices = [2, 3, 4, 5, -2,
-               -3, 6, 7, 1]
+    indices = [
+        1, 2, 3, 4, 5,
+        #-2, -3, 6, 7,
+    ]
     X_train = learnset[:,indices]
     X_test = trainset[:,indices]
     Y_train = learnset[:,-1]
@@ -182,19 +211,29 @@ def classify_all_resonances(parameters: TesterParameters, length: int, data_len:
     #kwargs = {'n_estimators': 50, 'max_features': 2, 'learning_rate': 0.85, 'max_depth': None, 'min_samples_split': 10*7}
     #kwargs = {'n_estimators': 500, 'learning_rate': 0.85, 'max_features': 4, 'min_samples_split': 30, 'max_depth': 5}
 
-    kwargs = {'max_features': 3 , 'n_estimators': 500 , 'max_depth': 3 , 'learning_rate': 0.85 , 'min_samples_split': 100}
+    #kwargs = {'max_features': 3 , 'n_estimators': 500 , 'max_depth': 3 , 'learning_rate': 0.85 , 'min_samples_split': 100}
     #kwargs = {'max_features': 4 , 'n_estimators': 500 , 'max_depth': 3 , 'learning_rate': 0.85 , 'min_samples_split': 2}
+
+    #for i in range(10, 60, 10):
+        #kwargs2 = {'learning_rate': 0.85 , 'max_features': 5 , 'min_samples_split': i , 'n_estimators': 500 , 'max_depth': 3}
+
+    gener = TrainTestGenerator(X_train, X_test, Y_train, Y_test)
+    kwargs = {'max_depth': 3, 'n_estimators': 50, 'max_features': None, 'min_samples_split': 100, 'learning_rate': 0.85}
     clf = GradientBoostingClassifier(**kwargs)
     #grid = {'C': np.power(10.0, np.arange(5, 7)), 'kernel': ['poly', 'sigmoid'], 'gamma': np.power(10.0, np.arange(-3, 3))}
     #grid = {'n_neighbors': [3,5,7,9,11], 'p': [1,2,3]}
     #grid = {'n_estimators': [50, 100, 500], 'learning_rate': [0.6, 0.85],
-            #'max_depth': [3, 5, 8, 10, 12], 'max_features': [None, 2, 3, 4, 5], 'min_samples_split': [2, 100, 500, 10*3, 10*5, 10*7]}
-    #gs = GridSearchCV(clf, grid, scoring='recall', cv=cv, verbose=2, n_jobs=4)
+            #'max_depth': [3, 5, 8, 10, 12], 'max_features': [None, 2, 3, 4, 5],
+            #'min_samples_split': [2, 100, 500, 10*3, 10*5, 10*7]}
+    #grid = {'n_estimators': [50], 'learning_rate': [0.85],
+            #'max_depth': [3], 'max_features': [None],
+            #'min_samples_split': [100]}
+    #gs = GridSearchCV(clf, grid, scoring='recall', cv=gener, verbose=2, n_jobs=4)
     #gs.fit(np.vstack((X_train, X_test)), np.hstack((Y_train, Y_test)))
     #import pprint
     #pprint.pprint(gs.grid_scores_)
     precision, recall, accuracy, TP, FP, TN, FN = _classify(clf, X_train, Y_train, X_test, Y_test)
-    table.add_row(['SVC', precision, recall, accuracy, TP, FP, TN, FN])
+    table.add_row(['GB %d' % 1, precision, recall, accuracy, TP, FP, TN, FN])
 
     print('\n')
     print(table.draw())

@@ -107,22 +107,28 @@ class IntegersInjection(ADatasetInjection):
             feature_matrix = X[np.where(np.abs(X[:, self._axis_index] - axis) <= 0.01)]
             if not feature_matrix.shape[0]:
                 continue
+
+            filename = 'JUPITER-SATURN_%s' % '_'.join([str(int(x)) for x in resonance[:integers_len]])
+            librated_asteroid_filepath = opjoin(self._librations_folder, filename)
+            if not opexist(librated_asteroid_filepath):
+                continue
+
+            librated_asteroid_vector = np.loadtxt(librated_asteroid_filepath, dtype=int)
+            if not librated_asteroid_vector.shape or librated_asteroid_vector.shape[0] < 50:
+                continue
+
+            #if not len(librated_asteroid_vector.shape):
+                #resonance_librations_count = 1
+            #else:
+                #resonance_librations_count = librated_asteroid_vector.shape[0]
+            Y = get_target_vector(librated_asteroid_vector, feature_matrix.astype(int))
+            #Y = np.zeros(feature_matrix.shape[0])
+            #resonance_librations_count = 0
+
             N = feature_matrix.shape[0]
             integers = np.repeat(resonance[:integers_len], N).reshape(integers_len, N).transpose()
             feature_matrix = np.hstack((feature_matrix, integers))
 
-            filename = 'JUPITER-SATURN_%s' % '_'.join([str(int(x)) for x in resonance[:integers_len]])
-            librated_asteroid_filepath = opjoin(self._librations_folder, filename)
-            if opexist(librated_asteroid_filepath):
-                librated_asteroid_vector = np.loadtxt(librated_asteroid_filepath, dtype=int)
-                #if not len(librated_asteroid_vector.shape):
-                    #resonance_librations_count = 1
-                #else:
-                    #resonance_librations_count = librated_asteroid_vector.shape[0]
-                Y = get_target_vector(librated_asteroid_vector, feature_matrix.astype(int))
-            else:
-                Y = np.zeros(feature_matrix.shape[0])
-                #resonance_librations_count = 0
             #librations_count += resonance_librations_count
             #feature_matrix = np.hstack((feature_matrix, np.repeat(resonance_librations_count, N).reshape(1, N).T))
             dataset = np.hstack((feature_matrix, np.array([Y]).T))

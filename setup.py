@@ -14,6 +14,7 @@ setup(
         'scikit-learn==0.17.1',
         'numpy==1.11.1',
         'scipy==0.18.0',
-        'texttable==0.8.4'
+        'texttable==0.8.4',
+        'pandas==0.18.1'
     ],
 )
