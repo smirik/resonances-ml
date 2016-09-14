@@ -6,7 +6,7 @@ from sklearn.preprocessing import StandardScaler
 class ProgressBar:
     def __init__(self, width, title='', divider=2):
         self._divider = divider
-        toolbar_width = width // divider
+        toolbar_width = int(width / divider)
         sys.stdout.write("%s [%s]" % (title, " " * toolbar_width))
         sys.stdout.flush()
         sys.stdout.write("\b" * (toolbar_width + 1))

@@ -85,6 +85,7 @@ class IntegersInjection(ADatasetInjection):
         self._data_len = value
 
     def update_data(self, X: np.ndarray) -> np.ndarray:
+        X[:, 0] = X[:, 0].astype(int)
         cache_filepath = '/tmp/cache.txt'
         if self._clear_cache:
             try:
@@ -98,7 +99,7 @@ class IntegersInjection(ADatasetInjection):
 
         print('\n')
         bar = ProgressBar(self._resonances.shape[0], 'Building dataset', 8)
-        res = np.zeros((1, X.shape[1] + 4))
+        res = np.zeros((1, X.shape[1] + 2))
         integers_len = 3
         #librations_count = 0
         for resonance in self._resonances:
@@ -126,7 +127,8 @@ class IntegersInjection(ADatasetInjection):
             #resonance_librations_count = 0
 
             N = feature_matrix.shape[0]
-            integers = np.repeat(resonance[:integers_len], N).reshape(integers_len, N).transpose()
+            integers_value = str(resonance[:integers_len])[1:-1].strip().replace('.', '')
+            integers = np.repeat(integers_value, N).reshape(1, N).transpose()
             feature_matrix = np.hstack((feature_matrix, integers))
 
             #librations_count += resonance_librations_count
@@ -135,12 +137,13 @@ class IntegersInjection(ADatasetInjection):
 
             res = np.vstack((res, dataset))
 
-        res = np.delete(res, 0, 0).astype(float)
+        res = np.delete(res, 0, 0)
         #libration_probability_vector = np.array([res[:,-2] / librations_count]).T
         #res = np.hstack((res, libration_probability_vector))
         #res[:,[-1,-2]] = res[:,[-2,-1]]
         sorted_res = res[res[:,0].argsort()]
         np.savetxt(cache_filepath, sorted_res,
-                   fmt='%s %f %f %f %f %.18e %.18e %.18e %.18e %d %d %d %d %d')
+                   fmt='%d %f %f %f %f %.18e %.18e %.18e %.18e %d %s %d')
+                   #fmt='%d %f %f %f %f %.18e %.18e %.18e %.18e %d %d %d %d %d')
                    #fmt='%s %f %f %f %f %.18e %.18e %.18e %.18e %d %d %d %d %d %d %f')
         return res[:self._data_len]

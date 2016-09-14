@@ -130,32 +130,42 @@ def _classify_all(datasets: _DataSets, parameters: TesterParameters):
 
 
 def _get_librations_for_resonances(dataset: np.ndarray) -> defaultdict:
-    bar = ProgressBar(dataset.shape[0], 'Getting additional features',
-                      int(dataset.shape[0] / 80))
-    resonance_librations_counter = defaultdict(int)
-    for features in dataset:
+    resonances = np.unique(dataset[:, -2])
+    bar = ProgressBar(resonances.shape[0], 'Getting additional features',
+                      resonances.shape[0] / 80)
+    #resonance_librations_counter = {x: 0 for x in resonances}
+    resonance_librations_ratio = {x: 0 for x in resonances}
+
+    for resonance in resonances:
         bar.update()
-        resonance = str(features[-3:-1])
-        resonance_librations_counter[resonance] += features[-1]
-    return resonance_librations_counter
+        resonance_condition = dataset[:, -2] == resonance
+        librated_indieces = np.where(resonance_condition & (dataset[:, -1] == 1))
+        libration_asteroid_count = dataset[librated_indieces].shape[0]
+        resonance_asteroid_count = dataset[np.where(resonance_condition)].shape[0]
+        #resonance_librations_counter[resonance] += libration_asteroid_count
+        resonance_librations_ratio[resonance] += libration_asteroid_count / resonance_asteroid_count
+
+    return resonance_librations_ratio
 
 
 def _update_feature_matrix(of_X: np.ndarray, by_libration_counters: defaultdict) -> np.ndarray:
-    bar = ProgressBar(of_X.shape[0], 'Update feature matrix', int(of_X.shape[0] / 80))
-    all_librations = sum([y for x, y in by_libration_counters.items()])
-    additional_features = np.array([[0, 0]])
-    for features in of_X:
-        bar.update()
-        resonance = str(features[-3:-1])
-        libration_count = by_libration_counters[resonance]
-        additional_features = np.vstack((
-            additional_features,
-            [libration_count, libration_count / all_librations]
-        ))
+    N = len(by_libration_counters)
+    bar = ProgressBar(N, 'Update feature matrix', N / 80)
+    #all_librations = sum([y for x, y in by_libration_counters.items()])
 
-    additional_features = np.delete(additional_features, 0, 0)
-    of_X = np.hstack((of_X, additional_features))
-    of_X[:,[-3,-2,-1]] = of_X[:,[-2,-1,-3]]
+    resonance_view_vector = np.zeros((of_X.shape[0]), dtype=float)
+    for resonance, resonance_view in by_libration_counters.items():
+        bar.update()
+        resonance_indieces = np.where(of_X[:, -2] == resonance)
+        resonance_view_vector[resonance_indieces] = resonance_view
+
+    #for i, features in enumerate(of_X):
+        #resonance = features[-2]
+        #libration_count = by_libration_counters[resonance]
+        #resonance_view_vector[i] = libration_count / all_librations
+
+    of_X = np.hstack((of_X, np.array([resonance_view_vector]).T))
+    of_X[:,[-2,-1]] = of_X[:,[-1,-2]]
     return of_X
 
 
@@ -186,22 +196,36 @@ class TrainTestGenerator(object):
         return [x for x in range(shape1)], [x for x in range(shape1, shape1 + shape2)]
 
 
+def _serialize_integers(dataset: np.ndarray) -> np.ndarray:
+    print("serialize resonances")
+    serialized_resonances = np.array(['_'.join(x) for x in dataset[:, -4:-1].astype(str)])
+    dataset = dataset.astype(object)
+    dataset = np.hstack((dataset, np.array([serialized_resonances]).T))
+    for _ in range(3):
+        dataset = np.delete(dataset, -3, 1)
+    dataset[:,[-2,-1]] = dataset[:,[-1,-2]]
+    return dataset
+
+
 def classify_all_resonances(parameters: TesterParameters, length: int, data_len: int):
     parameters.injection.set_data_len(data_len)
     table = _build_table()
     learnset, trainset = _get_feature_matricies(parameters, length)
-    #additional_features = _get_librations_for_resonances(learnset)
-    #learnset = _update_feature_matrix(learnset, additional_features)
-    #trainset = _update_feature_matrix(trainset, additional_features)
+    learnset = _serialize_integers(learnset)
+    trainset = _serialize_integers(trainset)
+
+    additional_features = _get_librations_for_resonances(learnset)
+    learnset = _update_feature_matrix(learnset, additional_features)
+    trainset = _update_feature_matrix(trainset, additional_features)
 
     indices = [
-        1, 2, 3, 4, 5,
+        1, 2, 3, 4, 5, -2
         #-2, -3, 6, 7,
     ]
     X_train = learnset[:,indices]
     X_test = trainset[:,indices]
-    Y_train = learnset[:,-1]
-    Y_test = trainset[:,-1]
+    Y_train = learnset[:,-1].astype(int)
+    Y_test = trainset[:,-1].astype(int)
 
     cv = KFold(learnset.shape[0], n_folds=2, random_state=241)
     #classifiers = _get_classifiers()
