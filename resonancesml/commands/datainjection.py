@@ -37,6 +37,11 @@ class _DataFilter(ADatasetInjection):
 
 
 class ClearDecorator(_DataFilter):
+    """
+    ClearDecorator clears off asteroids with unsuitable axis passed data.
+    Axises will be got by index form dataset. Suitable axis is determined by
+    absolute value of subtraheading of resonant axis and axis swing.
+    """
     def __init__(self, decorating: ADatasetInjection, resonant_axis,
                  axis_swing: float, axis_index: int):
         super(ClearDecorator, self).__init__(decorating.headers, resonant_axis,

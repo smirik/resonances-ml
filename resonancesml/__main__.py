@@ -121,8 +121,10 @@ def clear_learn(librate_list: str, catalog: str, fields: tuple,
 def classify_all(librate_list: str, all_librated: str, catalog: str):
     from resonancesml.commands.classify import classify_all as _classify_all
     from resonancesml.commands.parameters import get_classify_all_parameters
-    injection, _catalog = _get_injection_and_catalog()
-    parameters = get_classify_all_parameters(Catalog(catalog))
+    from resonancesml.commands.parameters import get_injection
+    _catalog = Catalog(catalog)
+    injection = get_injection(_catalog)
+    parameters = get_classify_all_parameters(Catalog(catalog), injection)
     _classify_all(librate_list, all_librated, parameters)
 
 

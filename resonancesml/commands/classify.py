@@ -39,23 +39,29 @@ class _DataSets:
         self.test_feature_set = test_feature_set
 
 
+NUMBERED_ASTEROID_COUNT = 406253
+
+
 def _get_datasets(librate_list: str, all_librated: str, parameters: TesterParameters,
                   slice_len: int = None) -> _DataSets:
     librated_asteroids = np.loadtxt(librate_list, dtype=int)
     all_librated_asteroids = np.loadtxt(all_librated, dtype=int)
     dtype = {0:str}
     dtype.update({x: float for x in range(1, parameters.catalog_width)})
-    catalog_feautures = pandas.read_csv(  # type: DataFrame
+    skiprows = parameters.skiprows
+    catalog_features = pandas.read_csv(  # type: DataFrame
         parameters.catalog_path, delim_whitespace=True,
-        skiprows=parameters.skiprows, header=None, dtype=dtype).values
+        skiprows=skiprows, header=None, dtype=dtype).values
+    tail = NUMBERED_ASTEROID_COUNT - skiprows
 
     if parameters.injection:
-        catalog_feautures = parameters.injection.update_data(catalog_feautures[:400000])
+        catalog_features = parameters.injection.update_data(
+            catalog_features[:tail])
 
     if slice_len is None:
         slice_len = int(librated_asteroids[-1])
-    learn_feature_set = catalog_feautures[:slice_len]  # type: np.ndarray
-    test_feature_set = catalog_feautures[slice_len:400000]  # type: np.ndarray
+    learn_feature_set = catalog_features[:slice_len]  # type: np.ndarray
+    test_feature_set = catalog_features[slice_len:tail]  # type: np.ndarray
     return _DataSets(librated_asteroids, learn_feature_set,
                      all_librated_asteroids, test_feature_set)
 
