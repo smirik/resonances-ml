@@ -118,13 +118,15 @@ def clear_learn(librate_list: str, catalog: str, fields: tuple,
 @click.option('--librate-list', '-l', type=click.Path(exists=True, resolve_path=True))
 @click.option('--all-librated', '-a', type=click.Path(exists=True, resolve_path=True))
 @click.option('--catalog', '-c', type=click.Choice([x.name for x in Catalog]))
-def classify_all(librate_list: str, all_librated: str, catalog: str):
+@click.argument('fields', nargs=-1)
+def classify_all(librate_list: str, all_librated: str, catalog: str, fields: tuple):
     from resonancesml.commands.classify import classify_all as _classify_all
-    from resonancesml.commands.parameters import get_classify_all_parameters
+    from resonancesml.commands.parameters import get_learn_parameters
     from resonancesml.commands.parameters import get_injection
     _catalog = Catalog(catalog)
     injection = get_injection(_catalog)
-    parameters = get_classify_all_parameters(Catalog(catalog), injection)
+    fields = [[int(x) for x in fields]] if fields else None
+    parameters = get_learn_parameters(_catalog, injection, fields)
     _classify_all(librate_list, all_librated, parameters)
 
 
@@ -142,8 +144,8 @@ def clear_classify_all(all_librated: str, catalog: str, fields: tuple,
     from resonancesml.commands.classify import clear_classify_all as _clear_classify_all
     from resonancesml.commands.parameters import get_learn_parameters
     injection, _catalog = _get_injection_and_catalog(catalog, resonant_axis, axis_swing, axis_index)
-    fields = [int(x) for x in fields]
-    parameters = get_learn_parameters(_catalog, injection, [fields])
+    fields = [[int(x) for x in fields]] if fields else None
+    parameters = get_learn_parameters(_catalog, injection, fields)
     _clear_classify_all(all_librated, parameters, train_length)
 
 

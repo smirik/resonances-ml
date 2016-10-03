@@ -74,7 +74,7 @@ def _build_table() -> Texttable:
     return table
 
 
-def _classify_all(datasets: _DataSets, parameters: TesterParameters):
+def _classify_all(datasets: _DataSets, parameters: TesterParameters, clf_name: str = None):
     table = _build_table()
     classifiers = {
         'Decision tree': DecisionTreeClassifier(random_state=241),
@@ -115,6 +115,6 @@ def clear_classify_all(all_librated: str, parameters: TesterParameters, length):
     _classify_all(datasets, parameters)
 
 
-def classify_all(librate_list: str, all_librated: str, parameters: TesterParameters):
+def classify_all(librate_list: str, all_librated: str, parameters: TesterParameters, clf_name: str = None):
     datasets = _get_datasets(librate_list, all_librated, parameters)
-    _classify_all(datasets, parameters)
+    _classify_all(datasets, parameters, clf_name)
