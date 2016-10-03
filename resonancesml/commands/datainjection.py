@@ -36,12 +36,17 @@ class _DataFilter(ADatasetInjection):
 
     def update_data(self, X: np.ndarray) -> np.ndarray:
         X = X[np.where(np.abs(X[:, self.axis_index] - self.resonant_axis) <= self.axis_swing)]
-        integers = np.array([[5, -2, -2]] * X.shape[0])
-        X = np.hstack((X, integers))
+        #integers = np.array([[5, -2, -2]] * X.shape[0])
+        #X = np.hstack((X, integers))
         return X
 
 
 class ClearDecorator(_DataFilter):
+    """
+    ClearDecorator clears off asteroids with unsuitable axis passed data.
+    Axises will be got by index form dataset. Suitable axis is determined by
+    absolute value of subtraheading of resonant axis and axis swing.
+    """
     def __init__(self, decorating: ADatasetInjection, resonant_axis,
                  axis_swing: float, axis_index: int):
         super(ClearDecorator, self).__init__(decorating.headers, resonant_axis,
@@ -146,4 +151,4 @@ class IntegersInjection(ADatasetInjection):
                    fmt='%d %f %f %f %f %.18e %.18e %.18e %.18e %d %s %d')
                    #fmt='%d %f %f %f %f %.18e %.18e %.18e %.18e %d %d %d %d %d')
                    #fmt='%s %f %f %f %f %.18e %.18e %.18e %.18e %d %d %d %d %d %d %f')
-        return res[:self._data_len]
+        return sorted_res

@@ -131,6 +131,8 @@ def _classify_all(datasets: _DataSets, parameters: TesterParameters):
 
 def _get_librations_for_resonances(dataset: np.ndarray) -> defaultdict:
     resonances = np.unique(dataset[:, -2])
+    import ipdb
+    ipdb.set_trace()
     bar = ProgressBar(resonances.shape[0], 'Getting additional features',
                       resonances.shape[0] / 80)
     #resonance_librations_counter = {x: 0 for x in resonances}
@@ -219,7 +221,8 @@ def classify_all_resonances(parameters: TesterParameters, length: int, data_len:
     trainset = _update_feature_matrix(trainset, additional_features)
 
     indices = [
-        1, 2, 3, 4, 5, -2
+        2, -2, 5, 1
+        #1, 2, 3, 4, 5, -2
         #-2, -3, 6, 7,
     ]
     X_train = learnset[:,indices]
@@ -231,7 +234,6 @@ def classify_all_resonances(parameters: TesterParameters, length: int, data_len:
     #classifiers = _get_classifiers()
     #for name, clf in classifiers.items():
     #clf = SVC(random_state=241)
-    #clf = KNeighborsClassifier(n_jobs=4)
     #kwargs = {'n_estimators': 50, 'max_features': 2, 'learning_rate': 0.85, 'max_depth': None, 'min_samples_split': 10*7}
     #kwargs = {'n_estimators': 500, 'learning_rate': 0.85, 'max_features': 4, 'min_samples_split': 30, 'max_depth': 5}
 
@@ -242,8 +244,11 @@ def classify_all_resonances(parameters: TesterParameters, length: int, data_len:
         #kwargs2 = {'learning_rate': 0.85 , 'max_features': 5 , 'min_samples_split': i , 'n_estimators': 500 , 'max_depth': 3}
 
     gener = TrainTestGenerator(X_train, X_test, Y_train, Y_test)
-    kwargs = {'max_depth': 3, 'n_estimators': 50, 'max_features': None, 'min_samples_split': 100, 'learning_rate': 0.85}
-    clf = GradientBoostingClassifier(**kwargs)
+    #kwargs = {'max_depth': 3, 'n_estimators': 50, 'max_features': None, 'min_samples_split': 100, 'learning_rate': 0.85}
+    #clf = KNeighborsClassifier(weights='distance', p=2, n_jobs=4)
+    clf = GradientBoostingClassifier(random_state=241, learning_rate=0.9809, n_estimators=39, max_features=1, min_samples_split=100)
+    #clf = DecisionTreeClassifier(random_state=42, max_depth=27)
+    #grid = {'min_samples_split': [x for x in range(100, 1000, 100)]}
     #grid = {'C': np.power(10.0, np.arange(5, 7)), 'kernel': ['poly', 'sigmoid'], 'gamma': np.power(10.0, np.arange(-3, 3))}
     #grid = {'n_neighbors': [3,5,7,9,11], 'p': [1,2,3]}
     #grid = {'n_estimators': [50, 100, 500], 'learning_rate': [0.6, 0.85],
