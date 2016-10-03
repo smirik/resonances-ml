@@ -118,8 +118,10 @@ def clear_learn(librate_list: str, catalog: str, fields: tuple,
 @click.option('--librate-list', '-l', type=click.Path(exists=True, resolve_path=True))
 @click.option('--all-librated', '-a', type=click.Path(exists=True, resolve_path=True))
 @click.option('--catalog', '-c', type=click.Choice([x.name for x in Catalog]))
+@click.option('--clf', type=click.Choice(['KNN', 'GB', 'DT']))
+@click.option('--report', type=bool, is_flag=True)
 @click.argument('fields', nargs=-1)
-def classify_all(librate_list: str, all_librated: str, catalog: str, fields: tuple):
+def classify_all(librate_list: str, all_librated: str, catalog: str, fields: tuple, clf: str, report: str):
     from resonancesml.commands.classify import classify_all as _classify_all
     from resonancesml.commands.parameters import get_learn_parameters
     from resonancesml.commands.parameters import get_injection
@@ -127,7 +129,7 @@ def classify_all(librate_list: str, all_librated: str, catalog: str, fields: tup
     injection = get_injection(_catalog)
     fields = [[int(x) for x in fields]] if fields else None
     parameters = get_learn_parameters(_catalog, injection, fields)
-    _classify_all(librate_list, all_librated, parameters)
+    _classify_all(librate_list, all_librated, parameters, clf)
 
 
 @main.command(name='clear-classify-all')
