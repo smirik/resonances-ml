@@ -1,7 +1,9 @@
 from sklearn.neighbors import KNeighborsClassifier
+from resonancesml.loader import get_asteroids
+from resonancesml.loader import get_catalog_dataset
+from resonancesml.loader import get_learn_set
 from sklearn.tree import DecisionTreeClassifier
 from sklearn.ensemble import GradientBoostingClassifier
-import pandas
 from pandas import DataFrame
 from typing import Dict
 import numpy as np
@@ -52,43 +54,35 @@ def trim_librated_asteroids(values: np.ndarray, maximal_asteroid_from_catalog: i
 
 def _get_datasets(librate_list: str, all_librated: str, parameters: TesterParameters,
                   slice_len: int = None) -> _DataSets:
-    librated_asteroids = np.loadtxt(librate_list, dtype=int)
     all_librated_asteroids = np.loadtxt(all_librated, dtype=int)
     dtype = {0:str}
     dtype.update({x: float for x in range(1, parameters.catalog_width)})
-    skiprows = parameters.skiprows
-    catalog_features = pandas.read_csv(  # type: DataFrame
-        parameters.catalog_path, delim_whitespace=True,
-        skiprows=skiprows, header=None, dtype=dtype).values
-    tail = NUMBERED_ASTEROID_COUNT - skiprows
+    catalog_features = get_catalog_dataset(parameters).values
 
     if parameters.injection:
-        catalog_features = parameters.injection.update_data(
-            catalog_features[:tail])
+        catalog_features = parameters.injection.update_data(catalog_features)
 
+    librated_asteroids = get_asteroids(librate_list,  catalog_features[:, 0].astype(int))
     if slice_len is None:
-        slice_len = int(librated_asteroids[-1])
-        slice_len = np.where(catalog_features[:, 0] == str(slice_len))[0][0] + 1
-    learn_feature_set = catalog_features[:slice_len]  # type: np.ndarray
-    test_feature_set = catalog_features[slice_len:tail]  # type: np.ndarray
+        slice_len = librated_asteroids[-1]
 
+    learn_feature_set = get_learn_set(catalog_features, str(slice_len))  # type: np.ndarray
+    test_feature_set = catalog_features[learn_feature_set.shape[0]:]  # type: np.ndarray
 
     max_number_catalog = test_feature_set[:, 0][-1]
     all_librated_asteroids = all_librated_asteroids[np.where(
         all_librated_asteroids <= int(max_number_catalog)
     )]
-    mask = np.in1d(all_librated_asteroids, catalog_features[:tail][:, 0].astype(int))
+    mask = np.in1d(all_librated_asteroids, catalog_features[:, 0].astype(int))
     all_librated_asteroids = all_librated_asteroids[mask]
-    mask = np.in1d(librated_asteroids, catalog_features[:tail][:, 0].astype(int))
-    librated_asteroids = librated_asteroids[mask]
     return _DataSets(librated_asteroids, learn_feature_set,
                      all_librated_asteroids, test_feature_set)
 
 
 def _build_table() -> Texttable:
     table = Texttable(max_width=120)
-    table.header(['Classifier', 'precision', 'recall', 'accuracy', 'TP', 'FP', 'TN', 'FN'])
-    table.set_cols_width([30, 15, 15, 15, 5, 5, 5, 5])
+    table.header(['Classifier', 'indices', 'precision', 'recall', 'accuracy', 'TP', 'FP', 'TN', 'FN'])
+    table.set_cols_width([20, 8, 11, 11, 11, 7, 7, 7, 7])
     table.set_precision(5)
     return table
 
@@ -117,10 +111,10 @@ def _classify_all(datasets: _DataSets, parameters: TesterParameters,
             if clf_name and clf_name != name:
                 continue
             res = _classify(clf, X, Y, X_test, Y_test)
-            data.append('%s;%s;%s' % (name, res.TP, res.FP))
-            data.append('%s;%s;%s' % (name, res.FN, res.TN))
-            table.add_row([name, res.precision, res.recall, res.accuracy,
-                           res.TP, res.FP, res.TN, res.FN])
+            data.append('%s;%s;%s;%s' % (name, ' '.join([str(x) for x in indices]), res.TP, res.FP))
+            data.append('%s;%s;%s;%s' % (name, ' '.join([str(x) for x in indices]), res.FN, res.TN))
+            table.add_row([name, ' '.join([str(x) for x in indices]), res.precision, res.recall,
+                           res.accuracy, res.TP, res.FP, res.TN, res.FN])
             result[name + '-' + '-'.join([str(x) for x in indices])] = res
 
     with open('data.csv', 'w') as f:
