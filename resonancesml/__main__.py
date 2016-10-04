@@ -51,7 +51,10 @@ def _get_classifiers():
 def learn(librate_list: str, catalog: str):
     from resonancesml.commands.learn import MethodComparer
     from resonancesml.commands.parameters import get_learn_parameters
-    parameters = get_learn_parameters(Catalog(catalog))
+    from resonancesml.commands.parameters import get_injection
+    _catalog = Catalog(catalog)
+    injection = get_injection(_catalog)
+    parameters = get_learn_parameters(_catalog, injection, None)
     tester = MethodComparer(librate_list, parameters)
     tester.set_methods(*(_get_classifiers()))
     tester.learn()
