@@ -159,7 +159,7 @@ def influence_fields(librate_list: str, catalog: str, model: str):
     from resonancesml.commands.learn import MethodComparer
     from resonancesml.commands.parameters import get_compare_parameters
 
-    parameters = get_compare_parameters(Catalog(catalog))
+    parameters = get_compare_parameters(Catalog(catalog), None)
     classifiers = { model: _get_classifier(model) }
     tester = MethodComparer(librate_list, parameters)
     tester.set_methods(classifiers, [model])

@@ -1,4 +1,5 @@
 import numpy as np
+from resonancesml.loader import get_learn_set
 from resonancesml.shortcuts import ProgressBar
 import re
 from texttable import Texttable
@@ -6,8 +7,9 @@ from typing import List
 from typing import Dict
 from resonancesml.shortcuts import get_target_vector
 from resonancesml.shortcuts import get_feuture_matrix
+from resonancesml.loader import get_asteroids
+from resonancesml.loader import get_catalog_dataset
 from .shortcuts import perf_measure
-import pandas
 from pandas import DataFrame
 from sklearn import cross_validation
 
@@ -64,12 +66,10 @@ def _classify(clf: ClassifierMixin, kf: cross_validation.KFold, X: np.ndarray, Y
 
 class MethodComparer:
     def __init__(self, librate_list: str, parameters: TesterParameters):
-        dtype = {0:str}
-        dtype.update({x: float for x in range(1,parameters.catalog_width)})
-        self._catalog_feautures = pandas.read_csv(  # type: DataFrame
-            parameters.catalog_path, delim_whitespace=True,
-            skiprows=parameters.skiprows, header=None, dtype=dtype)
-        self._librated_asteroids = np.loadtxt(librate_list, dtype=int)
+        self._catalog_features = get_catalog_dataset(parameters)
+        self._librated_asteroids = get_asteroids(
+            librate_list, self._catalog_features.values[:, 0].astype(int))
+
         self._parameters = parameters
         self._classifiers = None  # type: Dict[str, ClassifierMixin]
         self._keys = None
@@ -99,9 +99,8 @@ class MethodComparer:
 
 
     def learn(self):
-        slice_len = int(self._librated_asteroids[-1])
-
-        learn_feature_set = self._catalog_feautures.values[:slice_len]  # type: np.ndarray
+        learn_feature_set = get_learn_set(self._catalog_features.values,  # type: np.ndarray
+                                          str(self._librated_asteroids[-1]))
         table = Texttable(max_width=120)
         table.header(['Classifier', 'Input data (fields)', 'precision', 'recall',
                       'accuracy', 'TP', 'FP', 'TN', 'FN'])
