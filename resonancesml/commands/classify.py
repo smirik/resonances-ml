@@ -4,7 +4,6 @@ from resonancesml.loader import get_catalog_dataset
 from resonancesml.loader import get_learn_set
 from sklearn.tree import DecisionTreeClassifier
 from sklearn.ensemble import GradientBoostingClassifier
-from pandas import DataFrame
 from typing import Dict
 import numpy as np
 from .shortcuts import perf_measure
@@ -44,19 +43,9 @@ class _DataSets:
         self.test_feature_set = test_feature_set
 
 
-NUMBERED_ASTEROID_COUNT = 406253
-
-
-def trim_librated_asteroids(values: np.ndarray, maximal_asteroid_from_catalog: int) -> np.ndarray:
-    stop_index = np.where(values[:, 0] == str(maximal_asteroid_from_catalog))[0][0] + 1
-    return values[:stop_index]
-
-
 def _get_datasets(librate_list: str, all_librated: str, parameters: TesterParameters,
                   slice_len: int = None) -> _DataSets:
     all_librated_asteroids = np.loadtxt(all_librated, dtype=int)
-    dtype = {0:str}
-    dtype.update({x: float for x in range(1, parameters.catalog_width)})
     catalog_features = get_catalog_dataset(parameters).values
 
     if parameters.injection:
@@ -105,7 +94,6 @@ def _classify_all(datasets: _DataSets, parameters: TesterParameters,
         X_test = get_feuture_matrix(datasets.test_feature_set, False, indices)
         Y_test = get_target_vector(datasets.all_librated_asteroids,
                                    datasets.test_feature_set.astype(int))
-
 
         for name, clf in classifiers.items():
             if clf_name and clf_name != name:
