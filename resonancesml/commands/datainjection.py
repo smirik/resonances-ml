@@ -98,13 +98,13 @@ class IntegersInjection(ADatasetInjection):
             except Exception:
                 pass
         if opexist(cache_filepath):
-            print('dataset loaded from cache')
+            print('dataset has been loaded from cache')
             res = np.loadtxt(cache_filepath)
             return res[:self._data_len]
 
         print('\n')
-        bar = ProgressBar(self._resonances.shape[0], 'Building dataset', 8)
-        res = np.zeros((1, X.shape[1] + 2))
+        bar = ProgressBar(self._resonances.shape[0], 80, 'Building dataset')
+        res = np.zeros((1, X.shape[1] + 4))
         integers_len = 3
         #librations_count = 0
         for resonance in self._resonances:
@@ -132,14 +132,13 @@ class IntegersInjection(ADatasetInjection):
             #resonance_librations_count = 0
 
             N = feature_matrix.shape[0]
-            integers_value = str(resonance[:integers_len])[1:-1].strip().replace('.', '')
-            integers = np.repeat(integers_value, N).reshape(1, N).transpose()
+            #integers_value = str(resonance[:integers_len])[1:-1].strip().replace('.', '')
+            integers = np.tile(resonance[:integers_len], (N, 1))
             feature_matrix = np.hstack((feature_matrix, integers))
 
             #librations_count += resonance_librations_count
             #feature_matrix = np.hstack((feature_matrix, np.repeat(resonance_librations_count, N).reshape(1, N).T))
             dataset = np.hstack((feature_matrix, np.array([Y]).T))
-
             res = np.vstack((res, dataset))
 
         res = np.delete(res, 0, 0)
@@ -148,7 +147,7 @@ class IntegersInjection(ADatasetInjection):
         #res[:,[-1,-2]] = res[:,[-2,-1]]
         sorted_res = res[res[:,0].argsort()]
         np.savetxt(cache_filepath, sorted_res,
-                   fmt='%d %f %f %f %f %.18e %.18e %.18e %.18e %d %s %d')
+                   fmt='%d %f %f %f %f %.18e %.18e %.18e %.18e %d %d %d %d %d')
                    #fmt='%d %f %f %f %f %.18e %.18e %.18e %.18e %d %d %d %d %d')
                    #fmt='%s %f %f %f %f %.18e %.18e %.18e %.18e %d %d %d %d %d %d %f')
-        return sorted_res
+        return sorted_res[:self._data_len]

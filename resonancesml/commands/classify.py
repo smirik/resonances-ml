@@ -51,13 +51,14 @@ class _DataSets:
         self.test_feature_set = test_feature_set
 
 
-def _get_feature_matricies(parameters: TesterParameters, slice_len: int):
+def _get_feature_matricies(parameters: TesterParameters, slice_len: int)\
+        -> Tuple[np.ndarray, np.ndarray]:
     catalog_features = get_catalog_dataset(parameters).values
     if parameters.injection:
         catalog_features = parameters.injection.update_data(catalog_features)
 
-    learn_feature_set = catalog_feautures[:slice_len]  # type: np.ndarray
-    test_feature_set = catalog_feautures[slice_len:]  # type: np.ndarray
+    learn_feature_set = catalog_features[:slice_len]  # type: np.ndarray
+    test_feature_set = catalog_features[slice_len:]  # type: np.ndarray
     return learn_feature_set, test_feature_set
 
 
@@ -154,10 +155,7 @@ def _classify_all(datasets: _DataSets, parameters: TesterParameters,
 
 def _get_librations_for_resonances(dataset: np.ndarray) -> defaultdict:
     resonances = np.unique(dataset[:, -2])
-    import ipdb
-    ipdb.set_trace()
-    bar = ProgressBar(resonances.shape[0], 'Getting additional features',
-                      resonances.shape[0] / 80)
+    bar = ProgressBar(resonances.shape[0], 80, 'Getting additional features')
     #resonance_librations_counter = {x: 0 for x in resonances}
     resonance_librations_ratio = {x: 0 for x in resonances}
 
@@ -175,7 +173,7 @@ def _get_librations_for_resonances(dataset: np.ndarray) -> defaultdict:
 
 def _update_feature_matrix(of_X: np.ndarray, by_libration_counters: defaultdict) -> np.ndarray:
     N = len(by_libration_counters)
-    bar = ProgressBar(N, 'Update feature matrix', N / 80)
+    bar = ProgressBar(N, 80, 'Update feature matrix')
     #all_librations = sum([y for x, y in by_libration_counters.items()])
 
     resonance_view_vector = np.zeros((of_X.shape[0]), dtype=float)
@@ -289,8 +287,8 @@ def classify_all_resonances(parameters: TesterParameters, length: int, data_len:
     #gs.fit(np.vstack((X_train, X_test)), np.hstack((Y_train, Y_test)))
     #import pprint
     #pprint.pprint(gs.grid_scores_)
-    precision, recall, accuracy, TP, FP, TN, FN = _classify(clf, X_train, Y_train, X_test, Y_test)
-    table.add_row(['GB %d' % 1, precision, recall, accuracy, TP, FP, TN, FN])
+    res = _classify(clf, X_train, Y_train, X_test, Y_test)
+    table.add_row(['GB %d' % 1, ' '.join([str(x) for x in indices]), res.precision, res.recall, res.accuracy, res.TP, res.FP, res.TN, res.FN])
 
     print('\n')
     print(table.draw())
