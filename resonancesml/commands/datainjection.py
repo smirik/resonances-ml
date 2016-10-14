@@ -104,7 +104,7 @@ class IntegersInjection(ADatasetInjection):
 
         print('\n')
         bar = ProgressBar(self._resonances.shape[0], 80, 'Building dataset')
-        res = np.zeros((1, X.shape[1] + 4))
+        res = np.zeros((1, X.shape[1] + 5))
         integers_len = 3
         #librations_count = 0
         for resonance in self._resonances:
@@ -133,8 +133,12 @@ class IntegersInjection(ADatasetInjection):
 
             N = feature_matrix.shape[0]
             #integers_value = str(resonance[:integers_len])[1:-1].strip().replace('.', '')
-            integers = np.tile(resonance[:integers_len], (N, 1))
+            integers = np.tile(np.hstack(resonance[:integers_len]), (N, 1))
             feature_matrix = np.hstack((feature_matrix, integers))
+            resonant_axis = resonance[-1:]
+            axis_diffs = np.array([np.power((feature_matrix[:, 2] - resonant_axis), 2)]).T
+            #axis_diffs = np.array([feature_matrix[:, 2] - resonant_axis]).T
+            feature_matrix = np.hstack((feature_matrix, axis_diffs))
 
             #librations_count += resonance_librations_count
             #feature_matrix = np.hstack((feature_matrix, np.repeat(resonance_librations_count, N).reshape(1, N).T))
@@ -147,7 +151,7 @@ class IntegersInjection(ADatasetInjection):
         #res[:,[-1,-2]] = res[:,[-2,-1]]
         sorted_res = res[res[:,0].argsort()]
         np.savetxt(cache_filepath, sorted_res,
-                   fmt='%d %f %f %f %f %.18e %.18e %.18e %.18e %d %d %d %d %d')
+                   fmt='%d %f %f %f %f %.18e %.18e %.18e %.18e %d %d %d %d %f %d')
                    #fmt='%d %f %f %f %f %.18e %.18e %.18e %.18e %d %d %d %d %d')
                    #fmt='%s %f %f %f %f %.18e %.18e %.18e %.18e %d %d %d %d %d %d %f')
         return sorted_res[:self._data_len]

@@ -1,5 +1,7 @@
 from sklearn.neighbors import KNeighborsClassifier
+import matplotlib.pyplot as plt
 from sklearn.cross_validation import KFold
+from sklearn.preprocessing import normalize
 from resonancesml.loader import get_asteroids
 from resonancesml.loader import get_catalog_dataset
 from resonancesml.loader import get_learn_set
@@ -166,12 +168,12 @@ def _get_librations_for_resonances(dataset: np.ndarray) -> defaultdict:
         libration_asteroid_count = dataset[librated_indieces].shape[0]
         resonance_asteroid_count = dataset[np.where(resonance_condition)].shape[0]
         #resonance_librations_counter[resonance] += libration_asteroid_count
-        resonance_librations_ratio[resonance] += libration_asteroid_count / resonance_asteroid_count
+        resonance_librations_ratio[resonance] = libration_asteroid_count / resonance_asteroid_count
 
     return resonance_librations_ratio
 
 
-def _update_feature_matrix(of_X: np.ndarray, by_libration_counters: defaultdict) -> np.ndarray:
+def _update_feature_matrix(of_X: np.ndarray, by_libration_counters: Dict[str, float]) -> np.ndarray:
     N = len(by_libration_counters)
     bar = ProgressBar(N, 80, 'Update feature matrix')
     #all_librations = sum([y for x, y in by_libration_counters.items()])
@@ -219,15 +221,47 @@ class TrainTestGenerator(object):
         return [x for x in range(shape1)], [x for x in range(shape1, shape1 + shape2)]
 
 
+INTEGERS_COUNT = 3
+INTEGERS_START_INDEX = -5
+
+
 def _serialize_integers(dataset: np.ndarray) -> np.ndarray:
     print("serialize resonances")
-    serialized_resonances = np.array(['_'.join(x) for x in dataset[:, -4:-1].astype(str)])
+    integers_matrix = dataset[:, INTEGERS_START_INDEX:INTEGERS_START_INDEX + INTEGERS_COUNT]
+    serialized_resonances = np.array(['_'.join(x) for x in integers_matrix.astype(str)])
     dataset = dataset.astype(object)
     dataset = np.hstack((dataset, np.array([serialized_resonances]).T))
-    for _ in range(3):
-        dataset = np.delete(dataset, -3, 1)
+    for _ in range(INTEGERS_COUNT):
+        dataset = np.delete(dataset, -4, 1)
     dataset[:,[-2,-1]] = dataset[:,[-1,-2]]
     return dataset
+
+
+AXIS_OFFSET_INDEX = -4
+LIBRATION_VIEW_INDEX = -3
+
+
+def _filter_noises(dataset: np.ndarray, libration_views: Dict[str, float]) -> np.ndarray:
+    filtered_dataset = None
+    max_axis_offsets = {x: 0. for x in libration_views.keys()}
+    for key in max_axis_offsets.keys():
+        cond1 = dataset[:, LIBRATION_VIEW_INDEX] == key
+        cond2 = dataset[:, -1] == 1
+        max_diff = np.max(dataset[np.where(cond2 & cond1)][:, AXIS_OFFSET_INDEX])
+
+        suitable_objs = dataset[np.where(
+            cond1 &
+            (((dataset[:, -1] == 0) & (dataset[:, AXIS_OFFSET_INDEX] > max_diff)) | cond2)
+        )]
+
+        print("%s: %s -> %s" % (key, dataset[np.where(cond1)].shape[0], suitable_objs.shape[0]))
+
+        if filtered_dataset is None:
+            filtered_dataset = suitable_objs
+        else:
+            filtered_dataset = np.vstack((filtered_dataset, suitable_objs))
+
+    return np.array(filtered_dataset)
 
 
 def classify_all_resonances(parameters: TesterParameters, length: int, data_len: int):
@@ -246,8 +280,14 @@ def classify_all_resonances(parameters: TesterParameters, length: int, data_len:
     learnset = _update_feature_matrix(learnset, additional_features)
     trainset = _update_feature_matrix(trainset, additional_features)
 
+    #print(learnset.shape)
+    learnset = _filter_noises(learnset, additional_features)
+    #print(learnset.shape)
+
     indices = [
-        2, -2, 5, 1
+        2, -2
+        #2, -2, 5, AXIS_OFFSET_INDEX
+        #2, -2, 5, 1
         #1, 2, 3, 4, 5, -2
         #-2, -3, 6, 7,
     ]
@@ -271,8 +311,8 @@ def classify_all_resonances(parameters: TesterParameters, length: int, data_len:
 
     gener = TrainTestGenerator(X_train, X_test, Y_train, Y_test)
     #kwargs = {'max_depth': 3, 'n_estimators': 50, 'max_features': None, 'min_samples_split': 100, 'learning_rate': 0.85}
-    #clf = KNeighborsClassifier(weights='distance', p=2, n_jobs=4)
-    clf = GradientBoostingClassifier(random_state=241, learning_rate=0.9809, n_estimators=39, max_features=1, min_samples_split=100)
+    clf = KNeighborsClassifier(weights='distance', p=2, n_jobs=4)
+    #clf = GradientBoostingClassifier(random_state=241, learning_rate=0.9809, n_estimators=39, max_features=1, min_samples_split=100)
     #clf = DecisionTreeClassifier(random_state=42, max_depth=27)
     #grid = {'min_samples_split': [x for x in range(100, 1000, 100)]}
     #grid = {'C': np.power(10.0, np.arange(5, 7)), 'kernel': ['poly', 'sigmoid'], 'gamma': np.power(10.0, np.arange(-3, 3))}
@@ -287,8 +327,20 @@ def classify_all_resonances(parameters: TesterParameters, length: int, data_len:
     #gs.fit(np.vstack((X_train, X_test)), np.hstack((Y_train, Y_test)))
     #import pprint
     #pprint.pprint(gs.grid_scores_)
+
+    #learnset_slice = learnset
+    #true_class = learnset_slice[np.where(learnset_slice[:, -1] == 1)]
+    #false_class = learnset_slice[np.where(learnset_slice[:, -1] == 0)]
+    #plt.plot(true_class[:, 2], true_class[:, -2], 'bo', false_class[:, 2], false_class[:, -2], 'r^')
+    #plt.legend(['axis', 'libration'])
+    #plt.savefig('plot.png')
+
+
+    print(np.max(X_train[:, -1]))
     res = _classify(clf, X_train, Y_train, X_test, Y_test)
-    table.add_row(['GB %d' % 1, ' '.join([str(x) for x in indices]), res.precision, res.recall, res.accuracy, res.TP, res.FP, res.TN, res.FN])
+    table.add_row(['GB %d' % 1, ' '.join([str(x) for x in indices]),
+                   res.precision, res.recall, res.accuracy, res.TP, res.FP,
+                   res.TN, res.FN])
 
     print('\n')
     print(table.draw())
