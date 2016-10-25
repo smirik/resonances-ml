@@ -155,11 +155,23 @@ def _classify_all(datasets: _DataSets, parameters: TesterParameters,
     return result
 
 
-def _get_librations_for_resonances(dataset: np.ndarray) -> defaultdict:
+class _ResonanceView:
+    def __init__(self, libration_count, resonance_count):
+        self.libration_count = libration_count
+        self.resonance_count = resonance_count
+
+    @property
+    def ratio(self):
+        return self.libration_count / self.resonance_count
+
+
+def _get_librations_for_resonances(dataset: np.ndarray) -> Dict[str, _ResonanceView]:
     resonances = np.unique(dataset[:, -2])
     bar = ProgressBar(resonances.shape[0], 80, 'Getting additional features')
     #resonance_librations_counter = {x: 0 for x in resonances}
     resonance_librations_ratio = {x: 0 for x in resonances}
+    remains_librations_count = 0
+    remains_resonances_count = 0
 
     for resonance in resonances:
         bar.update()
@@ -168,13 +180,20 @@ def _get_librations_for_resonances(dataset: np.ndarray) -> defaultdict:
         libration_asteroid_count = dataset[librated_indieces].shape[0]
         resonance_asteroid_count = dataset[np.where(resonance_condition)].shape[0]
         #resonance_librations_counter[resonance] += libration_asteroid_count
-        resonance_librations_ratio[resonance] = libration_asteroid_count / resonance_asteroid_count
+        resonance_librations_ratio[resonance] = _ResonanceView(
+            libration_asteroid_count, resonance_asteroid_count)
 
+        if libration_asteroid_count < 100:
+            remains_librations_count = libration_asteroid_count
+            remains_resonances_count = resonance_asteroid_count
+
+    resonance_librations_ratio['other'] = _ResonanceView(
+        remains_librations_count, remains_resonances_count)
     return resonance_librations_ratio
 
 
-def _update_feature_matrix(of_X: np.ndarray, by_libration_counters: Dict[str, float]) -> np.ndarray:
-    N = len(by_libration_counters)
+def _update_feature_matrix(of_X: np.ndarray, by_libration_counters: Dict[str, _ResonanceView]) -> np.ndarray:
+    N = len(by_libration_counters) - 1
     bar = ProgressBar(N, 80, 'Update feature matrix')
     #all_librations = sum([y for x, y in by_libration_counters.items()])
 
@@ -182,7 +201,10 @@ def _update_feature_matrix(of_X: np.ndarray, by_libration_counters: Dict[str, fl
     for resonance, resonance_view in by_libration_counters.items():
         bar.update()
         resonance_indieces = np.where(of_X[:, -2] == resonance)
-        resonance_view_vector[resonance_indieces] = resonance_view
+        #if resonance_view.libration_count < 100:
+            #resonance_view_vector[resonance_indieces] = by_libration_counters['other'].ratio
+        #else:
+        resonance_view_vector[resonance_indieces] = resonance_view.ratio
 
     #for i, features in enumerate(of_X):
         #resonance = features[-2]
@@ -245,6 +267,8 @@ def _filter_noises(dataset: np.ndarray, libration_views: Dict[str, float]) -> np
     filtered_dataset = None
     max_axis_offsets = {x: 0. for x in libration_views.keys()}
     for key in max_axis_offsets.keys():
+        if key == 'other':
+            continue
         cond1 = dataset[:, LIBRATION_VIEW_INDEX] == key
         cond2 = dataset[:, -1] == 1
         max_diff = np.max(dataset[np.where(cond2 & cond1)][:, AXIS_OFFSET_INDEX])
@@ -286,7 +310,7 @@ def classify_all_resonances(parameters: TesterParameters, length: int, data_len:
 
     indices = [
         2, -2
-        #2, -2, 5, AXIS_OFFSET_INDEX
+        #2, -2, 5
         #2, -2, 5, 1
         #1, 2, 3, 4, 5, -2
         #-2, -3, 6, 7,
@@ -308,6 +332,19 @@ def classify_all_resonances(parameters: TesterParameters, length: int, data_len:
 
     #for i in range(10, 60, 10):
         #kwargs2 = {'learning_rate': 0.85 , 'max_features': 5 , 'min_samples_split': i , 'n_estimators': 500 , 'max_depth': 3}
+
+    #def custom_metric(x: np.ndarray, y: np.ndarray) -> float:
+        #if (x == y).all():
+            #return 0
+
+        #return 1.
+
+    #x1 = np.array(range(10)).reshape(5,-1)
+    #y1 = np.array(range(5))
+    #import ipdb
+    #ipdb.set_trace()
+    #clf = KNeighborsClassifier(metric=custom_metric)
+    #clf.fit(X_train, Y_train)
 
     gener = TrainTestGenerator(X_train, X_test, Y_train, Y_test)
     #kwargs = {'max_depth': 3, 'n_estimators': 50, 'max_features': None, 'min_samples_split': 100, 'learning_rate': 0.85}
@@ -335,8 +372,6 @@ def classify_all_resonances(parameters: TesterParameters, length: int, data_len:
     #plt.legend(['axis', 'libration'])
     #plt.savefig('plot.png')
 
-
-    print(np.max(X_train[:, -1]))
     res = _classify(clf, X_train, Y_train, X_test, Y_test)
     table.add_row(['GB %d' % 1, ' '.join([str(x) for x in indices]),
                    res.precision, res.recall, res.accuracy, res.TP, res.FP,

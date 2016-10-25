@@ -85,9 +85,42 @@ class IntegersInjection(ADatasetInjection):
         self._librations_folder = librations_folder
         self._clear_cache = clear_cache
         self._data_len = None
+        self._INTEGERS_LEN = 3
 
     def set_data_len(self, value):
         self._data_len = value
+
+    def _get_resonance_dataset(self, for_feature_matrix: np.ndarray, for_resonance: np.ndarray,
+                               librating_asteroids: np.ndarray) -> np.ndarray:
+        """
+        _get_resonance_dataset prepares dataset for one resonance.
+        It makes:
+            1) 3 features contains integers, satisfying D'Alambert rule.
+            2) Feature vector contains squares of difference between resonance
+            semi-major axis and asteroid semi-major axis.
+            3) Target vector and moves it to right.
+        """
+        #if not len(librating_asteroid_vector.shape):
+            #resonance_librations_count = 1
+        #else:
+            #resonance_librations_count = librating_asteroid_vector.shape[0]
+        Y = get_target_vector(librating_asteroids, for_feature_matrix.astype(int))
+        #Y = np.zeros(feature_matrix.shape[0])
+        #resonance_librations_count = 0
+
+        N = for_feature_matrix.shape[0]
+        #integers_value = str(resonance[:integers_len])[1:-1].strip().replace('.', '')
+        integers = np.tile(np.hstack(for_resonance[:self._INTEGERS_LEN]), (N, 1))
+        for_feature_matrix = np.hstack((for_feature_matrix, integers))
+        resonant_axis = for_resonance[-1:]
+        axis_diffs = np.array([np.power((for_feature_matrix[:, 2] - resonant_axis), 2)]).T
+        #axis_diffs = np.array([feature_matrix[:, 2] - resonant_axis]).T
+        for_feature_matrix = np.hstack((for_feature_matrix, axis_diffs))
+
+        #librations_count += resonance_librations_count
+        #feature_matrix = np.hstack((feature_matrix, np.repeat(resonance_librations_count, N).reshape(1, N).T))
+        dataset = np.hstack((for_feature_matrix, np.array([Y]).T))
+        return dataset
 
     def update_data(self, X: np.ndarray) -> np.ndarray:
         X[:, 0] = X[:, 0].astype(int)
@@ -105,44 +138,26 @@ class IntegersInjection(ADatasetInjection):
         print('\n')
         bar = ProgressBar(self._resonances.shape[0], 80, 'Building dataset')
         res = np.zeros((1, X.shape[1] + 5))
-        integers_len = 3
         #librations_count = 0
-        for resonance in self._resonances:
+        for resonance in self._resonances:  # type: np.ndarray
             bar.update()
             axis = resonance[6]
             feature_matrix = X[np.where(np.abs(X[:, self._axis_index] - axis) <= 0.01)]
             if not feature_matrix.shape[0]:
                 continue
 
-            filename = 'JUPITER-SATURN_%s' % '_'.join([str(int(x)) for x in resonance[:integers_len]])
+            filename = 'JUPITER-SATURN_%s' % '_'.join([
+                str(int(x)) for x in resonance[:self._INTEGERS_LEN]])
             librated_asteroid_filepath = opjoin(self._librations_folder, filename)
             if not opexist(librated_asteroid_filepath):
                 continue
 
-            librated_asteroid_vector = np.loadtxt(librated_asteroid_filepath, dtype=int)
-            if not librated_asteroid_vector.shape or librated_asteroid_vector.shape[0] < 50:
+            librating_asteroid_vector = np.loadtxt(librated_asteroid_filepath, dtype=int)
+            if not librating_asteroid_vector.shape or librating_asteroid_vector.shape[0] < 50:
                 continue
 
-            #if not len(librated_asteroid_vector.shape):
-                #resonance_librations_count = 1
-            #else:
-                #resonance_librations_count = librated_asteroid_vector.shape[0]
-            Y = get_target_vector(librated_asteroid_vector, feature_matrix.astype(int))
-            #Y = np.zeros(feature_matrix.shape[0])
-            #resonance_librations_count = 0
-
-            N = feature_matrix.shape[0]
-            #integers_value = str(resonance[:integers_len])[1:-1].strip().replace('.', '')
-            integers = np.tile(np.hstack(resonance[:integers_len]), (N, 1))
-            feature_matrix = np.hstack((feature_matrix, integers))
-            resonant_axis = resonance[-1:]
-            axis_diffs = np.array([np.power((feature_matrix[:, 2] - resonant_axis), 2)]).T
-            #axis_diffs = np.array([feature_matrix[:, 2] - resonant_axis]).T
-            feature_matrix = np.hstack((feature_matrix, axis_diffs))
-
-            #librations_count += resonance_librations_count
-            #feature_matrix = np.hstack((feature_matrix, np.repeat(resonance_librations_count, N).reshape(1, N).T))
-            dataset = np.hstack((feature_matrix, np.array([Y]).T))
+            dataset = self._get_resonance_dataset(feature_matrix, resonance,
+                                                  librating_asteroid_vector)
             res = np.vstack((res, dataset))
 
         res = np.delete(res, 0, 0)

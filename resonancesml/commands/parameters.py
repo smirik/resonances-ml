@@ -1,5 +1,6 @@
 from resonancesml.settings import SYN_CATALOG_PATH
 from resonancesml.settings import CAT_CATALOG_PATH
+from resonancesml.settings import PRO_CATALOG_PATH
 
 from typing import List
 
@@ -14,6 +15,7 @@ from .datainjection import KeplerInjection
 class Catalog(Enum):
     syn = 'syn'
     cat = 'cat'
+    pro = 'pro'
 
 
 class TesterParameters:
@@ -49,6 +51,9 @@ def get_learn_parameters(catalog: Catalog, injection: ADatasetInjection,
         catalog.cat: TesterParameters(
             [[2, 3, 10], [2, 3, 4, 10]] if not indices else indices,
             CAT_CATALOG_PATH, 8, "\.|,", 6, injection),
+        catalog.pro: TesterParameters(
+            [[1, 2], [1, 2, 3]] if not indices else indices,
+            PRO_CATALOG_PATH, 6, ";", 3, injection),
     }[catalog]
 
 
