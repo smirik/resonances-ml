@@ -71,6 +71,7 @@ class ClearKeplerInjection(KeplerInjection):
         X = super(ClearKeplerInjection, self).update_data(X)
         return X
 
+
 class IntegersInjection(ADatasetInjection):
     """
     InegersInjection adds integers satisfying D'Alambert of every resonance
@@ -86,9 +87,38 @@ class IntegersInjection(ADatasetInjection):
         self._clear_cache = clear_cache
         self._data_len = None
         self._INTEGERS_LEN = 3
+        self._MU = 0.01720209895
+        self._resonances_axises = {}
+
+    @property
+    def axis_index(self):
+        return self._axis_index
 
     def set_data_len(self, value):
         self._data_len = value
+
+    def get_resonance_axis(self, resonance_view: str) -> float:
+        """
+        :param resonance_view: string like '3.0_-1.0_-1.0'
+        """
+        if not self._resonances_axises:
+            for resonance in self._resonances:  # type: np.ndarray
+                axis = resonance[6]
+                self._resonances_axises['_'.join([str(x) for x in resonance[:3]])] = axis
+        return self._resonances_axises[resonance_view]
+
+    def _get_axis_diffs(self, for_feature_matrix: np.ndarray, for_resonant_axis: float) -> np.ndarray:
+        axis_diffs = for_feature_matrix[:, self._axis_index] - for_resonant_axis
+        #min_axis_diff = np.min(np.abs(axis_diffs))
+        #measure = 1
+        #while min_axis_diff < 1:
+            #min_axis_diff *= 10
+            #measure *= 10
+        #axis_diffs *= measure
+        axis_diffs = np.power(axis_diffs, 2)
+        #axis_diffs = (axis_diffs - min(axis_diffs))/(max(axis_diffs) - min(axis_diffs))
+        axis_diffs = np.array([axis_diffs]).T
+        return axis_diffs
 
     def _get_resonance_dataset(self, for_feature_matrix: np.ndarray, for_resonance: np.ndarray,
                                librating_asteroids: np.ndarray) -> np.ndarray:
@@ -96,9 +126,10 @@ class IntegersInjection(ADatasetInjection):
         _get_resonance_dataset prepares dataset for one resonance.
         It makes:
             1) 3 features contains integers, satisfying D'Alambert rule.
-            2) Feature vector contains squares of difference between resonance
+            2) Feature vector contains squares of difference between resonance.
             semi-major axis and asteroid semi-major axis.
             3) Target vector and moves it to right.
+            4) adds mean motion vector.
         """
         #if not len(librating_asteroid_vector.shape):
             #resonance_librations_count = 1
@@ -110,11 +141,15 @@ class IntegersInjection(ADatasetInjection):
 
         N = for_feature_matrix.shape[0]
         #integers_value = str(resonance[:integers_len])[1:-1].strip().replace('.', '')
-        integers = np.tile(np.hstack(for_resonance[:self._INTEGERS_LEN]), (N, 1))
-        for_feature_matrix = np.hstack((for_feature_matrix, integers))
+        integers = np.tile(for_resonance[:self._INTEGERS_LEN], (N, 1))
+        mean_motion_vec = np.sqrt((self._MU / (for_feature_matrix[:, self._axis_index] ** 3)).astype(float))
+        for_feature_matrix = np.hstack((for_feature_matrix, np.array([mean_motion_vec]).T, integers))
         resonant_axis = for_resonance[-1:]
-        axis_diffs = np.array([np.power((for_feature_matrix[:, 2] - resonant_axis), 2)]).T
+
+        #axis_diffs *= 10 ** 3
+        #print(axis_diffs[:10])
         #axis_diffs = np.array([feature_matrix[:, 2] - resonant_axis]).T
+        axis_diffs = self._get_axis_diffs(for_feature_matrix, resonant_axis)
         for_feature_matrix = np.hstack((for_feature_matrix, axis_diffs))
 
         #librations_count += resonance_librations_count
@@ -137,11 +172,12 @@ class IntegersInjection(ADatasetInjection):
 
         print('\n')
         bar = ProgressBar(self._resonances.shape[0], 80, 'Building dataset')
-        res = np.zeros((1, X.shape[1] + 5))
+        res = np.zeros((1, X.shape[1] + 6))
         #librations_count = 0
         for resonance in self._resonances:  # type: np.ndarray
             bar.update()
             axis = resonance[6]
+
             feature_matrix = X[np.where(np.abs(X[:, self._axis_index] - axis) <= 0.01)]
             if not feature_matrix.shape[0]:
                 continue
@@ -166,7 +202,7 @@ class IntegersInjection(ADatasetInjection):
         #res[:,[-1,-2]] = res[:,[-2,-1]]
         sorted_res = res[res[:,0].argsort()]
         np.savetxt(cache_filepath, sorted_res,
-                   fmt='%d %f %f %f %f %.18e %.18e %.18e %.18e %d %d %d %d %f %d')
+                   fmt='%d %f %f %f %f %.18e %.18e %.18e %.18e %d %f %d %d %d %f %d')
                    #fmt='%d %f %f %f %f %.18e %.18e %.18e %.18e %d %d %d %d %d')
                    #fmt='%s %f %f %f %f %.18e %.18e %.18e %.18e %d %d %d %d %d %d %f')
         return sorted_res[:self._data_len]

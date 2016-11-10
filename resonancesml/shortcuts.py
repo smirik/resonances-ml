@@ -44,3 +44,6 @@ def get_feuture_matrix(from_features: np.ndarray, scale: bool, indices: List[int
         scaler = StandardScaler()
         res = scaler.fit_transform(res)
     return res
+
+def norm(vector: np.ndarray) -> np.ndarray:
+    return (vector - np.min(vector))/(np.max(vector) - np.min(vector))

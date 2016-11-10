@@ -1,19 +1,21 @@
 from sklearn.neighbors import KNeighborsClassifier
+import os
 import matplotlib.pyplot as plt
-from sklearn.cross_validation import KFold
-from sklearn.preprocessing import normalize
+#from sklearn.cross_validation import KFold
+#from sklearn.preprocessing import normalize
 from resonancesml.loader import get_asteroids
 from resonancesml.loader import get_catalog_dataset
 from resonancesml.loader import get_learn_set
 from sklearn.tree import DecisionTreeClassifier
-from collections import defaultdict
+#from collections import defaultdict
 from sklearn.ensemble import GradientBoostingClassifier
-from sklearn.grid_search import GridSearchCV
-from sklearn.svm import SVC
-import pandas
-from pandas import DataFrame
+#from sklearn.grid_search import GridSearchCV
+#from sklearn.svm import SVC
+#import pandas
+#from pandas import DataFrame
 from typing import Tuple
 from typing import Dict
+from typing import List
 import numpy as np
 from .shortcuts import perf_measure
 from resonancesml.shortcuts import ProgressBar
@@ -26,6 +28,9 @@ from texttable import Texttable
 from sklearn.base import ClassifierMixin
 
 from .parameters import TesterParameters
+from .knezevic import KnezevicElems
+from .knezevic import knezevic
+from .knezevic import knezevic_metric
 
 
 class ClassifyResult:
@@ -53,11 +58,17 @@ class _DataSets:
         self.test_feature_set = test_feature_set
 
 
+class EmptyFeatures(Exception):
+    pass
+
+
 def _get_feature_matricies(parameters: TesterParameters, slice_len: int)\
         -> Tuple[np.ndarray, np.ndarray]:
     catalog_features = get_catalog_dataset(parameters).values
     if parameters.injection:
         catalog_features = parameters.injection.update_data(catalog_features)
+        if not catalog_features.shape[0]:
+            raise EmptyFeatures()
 
     learn_feature_set = catalog_features[:slice_len]  # type: np.ndarray
     test_feature_set = catalog_features[slice_len:]  # type: np.ndarray
@@ -94,7 +105,7 @@ def _build_table() -> Texttable:
 
 
 def _get_classifiers():
-    from sklearn.linear_model import LogisticRegression
+    #from sklearn.linear_model import LogisticRegression
     return {
         #'Decision tree': DecisionTreeClassifier(random_state=241, max_depth=39),
         #'K neighbors': KNeighborsClassifier(weights='distance', p=2, n_jobs=4, n_neighbors=5),
@@ -165,16 +176,19 @@ class _ResonanceView:
         return self.libration_count / self.resonance_count
 
 
-def _get_librations_for_resonances(dataset: np.ndarray) -> Dict[str, _ResonanceView]:
+def _get_librations_for_resonances(dataset: np.ndarray, verbose: bool = False) -> Dict[str, _ResonanceView]:
     resonances = np.unique(dataset[:, -2])
-    bar = ProgressBar(resonances.shape[0], 80, 'Getting additional features')
+    bar = None
+    if verbose:
+        bar = ProgressBar(resonances.shape[0], 80, 'Getting additional features')
     #resonance_librations_counter = {x: 0 for x in resonances}
     resonance_librations_ratio = {x: 0 for x in resonances}
     remains_librations_count = 0
     remains_resonances_count = 0
 
     for resonance in resonances:
-        bar.update()
+        if bar:
+            bar.update()
         resonance_condition = dataset[:, -2] == resonance
         librated_indieces = np.where(resonance_condition & (dataset[:, -1] == 1))
         libration_asteroid_count = dataset[librated_indieces].shape[0]
@@ -192,18 +206,24 @@ def _get_librations_for_resonances(dataset: np.ndarray) -> Dict[str, _ResonanceV
     return resonance_librations_ratio
 
 
-def _update_feature_matrix(of_X: np.ndarray, by_libration_counters: Dict[str, _ResonanceView]) -> np.ndarray:
-    N = len(by_libration_counters) - 1
-    bar = ProgressBar(N, 80, 'Update feature matrix')
+def _update_feature_matrix(of_X: np.ndarray, by_libration_counters: Dict[str, _ResonanceView],
+                           verbose: bool = False) -> np.ndarray:
+    bar = None
+    if verbose:
+        N = len(by_libration_counters) - 1
+        bar = ProgressBar(N, 80, 'Update feature matrix')
     #all_librations = sum([y for x, y in by_libration_counters.items()])
 
     resonance_view_vector = np.zeros((of_X.shape[0]), dtype=float)
     for resonance, resonance_view in by_libration_counters.items():
-        bar.update()
+        if bar:
+            bar.update()
         resonance_indieces = np.where(of_X[:, -2] == resonance)
         #if resonance_view.libration_count < 100:
             #resonance_view_vector[resonance_indieces] = by_libration_counters['other'].ratio
         #else:
+        if resonance_view.resonance_count == 0:
+            continue
         resonance_view_vector[resonance_indieces] = resonance_view.ratio
 
     #for i, features in enumerate(of_X):
@@ -245,10 +265,11 @@ class TrainTestGenerator(object):
 
 INTEGERS_COUNT = 3
 INTEGERS_START_INDEX = -5
+AXIS_OFFSET_INDEX = -4
+RESONANCE_VIEW_INDEX = -3
 
 
 def _serialize_integers(dataset: np.ndarray) -> np.ndarray:
-    print("serialize resonances")
     integers_matrix = dataset[:, INTEGERS_START_INDEX:INTEGERS_START_INDEX + INTEGERS_COUNT]
     serialized_resonances = np.array(['_'.join(x) for x in integers_matrix.astype(str)])
     dataset = dataset.astype(object)
@@ -259,26 +280,37 @@ def _serialize_integers(dataset: np.ndarray) -> np.ndarray:
     return dataset
 
 
-AXIS_OFFSET_INDEX = -4
-LIBRATION_VIEW_INDEX = -3
-
-
-def _filter_noises(dataset: np.ndarray, libration_views: Dict[str, float]) -> np.ndarray:
+def _filter_noises(dataset: np.ndarray, libration_views: Dict[str, float], axis_index: int,
+                   verbose: bool = False) -> np.ndarray:
     filtered_dataset = None
     max_axis_offsets = {x: 0. for x in libration_views.keys()}
+
     for key in max_axis_offsets.keys():
         if key == 'other':
             continue
-        cond1 = dataset[:, LIBRATION_VIEW_INDEX] == key
-        cond2 = dataset[:, -1] == 1
-        max_diff = np.max(dataset[np.where(cond2 & cond1)][:, AXIS_OFFSET_INDEX])
+        current_resonance = dataset[:, RESONANCE_VIEW_INDEX] == key
+        resonance_dataset = dataset[np.where(current_resonance)]
+        is_target_true = resonance_dataset[:, -1] == 1
+        is_target_false = resonance_dataset[:, -1] == 0
 
-        suitable_objs = dataset[np.where(
-            cond1 &
-            (((dataset[:, -1] == 0) & (dataset[:, AXIS_OFFSET_INDEX] > max_diff)) | cond2)
+        #filter_cond = knezevic_filter(resonance_dataset, is_target_true)
+        #suitable_objs = resonance_dataset[np.where(
+            #((is_target_false & filter_cond) | is_target_true)
+        #)]
+        max_diff = np.max(resonance_dataset[np.where(is_target_true)][:, AXIS_OFFSET_INDEX])
+        suitable_objs = resonance_dataset[np.where(
+            ((is_target_false & (resonance_dataset[:, AXIS_OFFSET_INDEX] > max_diff)) | is_target_true)
+            #((is_target_false & (resonance_dataset[:, AXIS_OFFSET_INDEX] > max_diff) & resonance_dataset[:, -4]) | is_target_true)
         )]
 
-        print("%s: %s -> %s" % (key, dataset[np.where(cond1)].shape[0], suitable_objs.shape[0]))
+        #filter_cond = euclidean_filter(resonance_dataset, is_target_true, verbose)
+        #suitable_objs = resonance_dataset[np.where(
+            #((is_target_false & filter_cond) | is_target_true)
+        #)]
+
+        if verbose:
+            print("%s: %s -> %s" % (key, dataset[np.where(current_resonance)].shape[0],
+                                    suitable_objs.shape[0]))
 
         if filtered_dataset is None:
             filtered_dataset = suitable_objs
@@ -288,39 +320,153 @@ def _filter_noises(dataset: np.ndarray, libration_views: Dict[str, float]) -> np
     return np.array(filtered_dataset)
 
 
-def classify_all_resonances(parameters: TesterParameters, length: int, data_len: int):
+class CounterObj:
+    counter = 0
+    pairs = []
+    def __init__(self, x: np.ndarray, y: np.ndarray):
+        CounterObj.counter += 1
+        #if (x, y) in CounterObj.pairs:
+            #raise Exception('%s %s' % (x, y))
+        CounterObj.pairs.append((x, y))
+
+
+def _build_datasets(parameters: TesterParameters, length: int, data_len: int, filter_noise: bool,
+                    verbose: int) -> Tuple[np.ndarray, np.ndarray]:
     """
     :param parameters: parameters for testing classificators.
     :param length: length of learnset.
     :param data_len: it length of data from catalog.
     """
     parameters.injection.set_data_len(data_len)
-    table = _build_table()
-    learnset, trainset = _get_feature_matricies(parameters, length)
+    try:
+        learnset, trainset = _get_feature_matricies(parameters, length)
+    except EmptyFeatures:
+        print('\033[91mThere is no object\033[0m')
+        exit(-1)
     learnset = _serialize_integers(learnset)
     trainset = _serialize_integers(trainset)
 
-    additional_features = _get_librations_for_resonances(learnset)
-    learnset = _update_feature_matrix(learnset, additional_features)
-    trainset = _update_feature_matrix(trainset, additional_features)
+    additional_features = _get_librations_for_resonances(learnset, verbose > 0)
+    learnset = _update_feature_matrix(learnset, additional_features, verbose > 0)
+    trainset = _update_feature_matrix(trainset, additional_features, verbose > 0)
 
-    #print(learnset.shape)
-    learnset = _filter_noises(learnset, additional_features)
-    #print(learnset.shape)
+    if filter_noise:
+        learnset = _filter_noises(learnset, additional_features, parameters.injection.axis_index, verbose > 1)
+    return learnset, trainset
 
-    indices = [
-        2, -2
+
+def _separate_dataset(indices: List[int], learnset: np.ndarray, trainset: np.ndarray)\
+            -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+    #indices = [
+        #2, 3, 4, 5
+        #1, 2, 3, mean_motion_idx
         #2, -2, 5
         #2, -2, 5, 1
         #1, 2, 3, 4, 5, -2
         #-2, -3, 6, 7,
-    ]
+    #]
     X_train = learnset[:,indices]
     X_test = trainset[:,indices]
     Y_train = learnset[:,-1].astype(int)
     Y_test = trainset[:,-1].astype(int)
+    return X_train, X_test, Y_train, Y_test
 
-    cv = KFold(learnset.shape[0], n_folds=2, random_state=241)
+
+def _plot(feature_matrix: np.ndarray, target_vector: np.ndarray, plot_title: str = None):
+    true_cond = np.where(target_vector == 1)
+    false_cond = np.where(target_vector != 1)
+    true_class = feature_matrix[true_cond]
+    false_class = feature_matrix[false_cond]
+
+    ecc1 = true_class[:, 1]
+    ecc2 = false_class[:, 1]
+
+    sini1 = true_class[:, 2]
+    sini2 = false_class[:, 2]
+    mag1 = true_class[:, 3]
+    mag2 = false_class[:, 3]
+
+    zero = KnezevicElems(0, 0, 0, 0)
+    knez1 = knezevic(KnezevicElems(true_class[:, 0], ecc1, sini1, mag1), zero)
+    knez2 = knezevic(KnezevicElems(false_class[:, 0], ecc2, sini2, mag2), zero)
+
+    data = {
+        'axis': [true_class[:, 0], false_class[:, 0]],
+        'eccentricity': [ecc1, ecc2],
+        'sin_inclination': [sini1, sini2],
+        'magnitude': [mag1, mag2],
+        'knezevic': [knez1, knez2],
+        'axis-diff-square': [true_class[:, -1], false_class[:, -1]],
+    }
+
+    data_keys = [x for x in sorted(data.keys())]
+    print("true class: ", true_class.shape)
+    print("false class: ", false_class[np.where(false_class[:, -1] < np.max(true_class[:, -1]))].shape)
+    for i, x_key in enumerate(data_keys):
+        for j, y_key in enumerate(data_keys[i + 1:]):
+            plot_number = j + i * len(data_keys)
+            plt.figure(plot_number, figsize=(15,15))
+            plt.plot(
+                data[x_key][0], data[y_key][0], 'bo',
+                data[x_key][1], data[y_key][1], 'r^',
+            )
+            plt.xlabel(x_key)
+            plt.ylabel(y_key)
+            filename = '%s_%s.png' % (x_key, y_key)
+            plt.savefig(os.path.join(os.curdir, filename), bbox_inches='tight')
+    return
+
+
+    m51 = true_class[:, 4]
+    m52 = false_class[:, 4]
+
+    #plt.plot(true_class[:, 0] * (m11 + m21) * m31,
+             #true_class[:, -1], 'bo',
+             #false_class[:, 0] * (ecc2 + sini2) * m32,
+             #false_class[:, -1], 'r^')
+    plt.plot(true_class[:, -1] * (1 - sini1),
+             m51 * knez1 * ecc1, 'bo',
+             false_class[:, -1] * (1 - sini2),
+             m52 * knez2 * ecc2, 'r^')
+    #plt.plot(true_class[:, 0],
+             #true_class[:, 1], 'bo',
+             #false_class[:, 0],
+             #false_class[:, 1], 'r^')
+    plt.ylabel('axis')
+    plt.xlabel('square of axis delta')
+    #plt.legend(['libration', 'no libration'])
+    if plot_title:
+        plt.title(str(plot_title))
+    plt.savefig('plot.png')
+    return
+
+
+def classify_all_resonances(parameters: TesterParameters, length: int, data_len: int, filter_noise: bool,
+                            add_art_objects: bool, metric: str, plot: bool, verbose: int):
+    """
+    :param parameters: parameters for testing classificators.
+    :param length: length of learnset.
+    :param data_len: it length of data from catalog.
+    """
+    table = _build_table()
+    learnset, trainset = _build_datasets(parameters, length, data_len, filter_noise, verbose)
+    resonance_view = learnset[0][-3]
+
+    indices = parameters.indices_cases[0]
+    X_train, X_test, Y_train, Y_test = _separate_dataset(parameters.indices_cases[0], learnset, trainset)
+
+    if add_art_objects:
+        from imblearn.over_sampling import SMOTE
+        sm = SMOTE(ratio=0.99, random_state=42)
+        X_train, Y_train = sm.fit_sample(X_train, Y_train)
+        resonance_axis = parameters.injection.get_resonance_axis(resonance_view)
+        X_train[:, -1] = np.power(X_train[:, 0] - resonance_axis, 2)
+
+    if plot:
+        _plot(X_train, Y_train)
+        return
+
+    #cv = KFold(learnset.shape[0], n_folds=2, random_state=241)
     #classifiers = _get_classifiers()
     #for name, clf in classifiers.items():
     #clf = SVC(random_state=241)
@@ -333,23 +479,33 @@ def classify_all_resonances(parameters: TesterParameters, length: int, data_len:
     #for i in range(10, 60, 10):
         #kwargs2 = {'learning_rate': 0.85 , 'max_features': 5 , 'min_samples_split': i , 'n_estimators': 500 , 'max_depth': 3}
 
-    #def custom_metric(x: np.ndarray, y: np.ndarray) -> float:
-        #if (x == y).all():
-            #return 0
-
-        #return 1.
-
     #x1 = np.array(range(10)).reshape(5,-1)
     #y1 = np.array(range(5))
-    #import ipdb
-    #ipdb.set_trace()
     #clf = KNeighborsClassifier(metric=custom_metric)
     #clf.fit(X_train, Y_train)
 
-    gener = TrainTestGenerator(X_train, X_test, Y_train, Y_test)
+    #gener = TrainTestGenerator(X_train, X_test, Y_train, Y_test)
     #kwargs = {'max_depth': 3, 'n_estimators': 50, 'max_features': None, 'min_samples_split': 100, 'learning_rate': 0.85}
-    clf = KNeighborsClassifier(weights='distance', p=2, n_jobs=4)
-    #clf = GradientBoostingClassifier(random_state=241, learning_rate=0.9809, n_estimators=39, max_features=1, min_samples_split=100)
+
+    kwargs = {
+        'euclidean': {'p': 2},
+        'knezevic': {'metric': knezevic_metric}
+    }[metric]
+    assert(kwargs)
+    #clf = DecisionTreeClassifier()
+    #from sklearn.svm import SVC
+    #clf = SVC(C=0.1)
+    clf = KNeighborsClassifier(weights='distance', n_jobs=4, algorithm='ball_tree', **kwargs)
+    #from sklearn.linear_model import LogisticRegression
+    #from sklearn.naive_bayes import GaussianNB
+    #clf = GaussianNB()
+    #from sklearn.discriminant_analysis import QuadraticDiscriminantAnalysis
+    #clf = QuadraticDiscriminantAnalysis()
+
+    #clf = GradientBoostingClassifier(
+        #random_state=241,
+        #learning_rate=0.9809,
+        #n_estimators=40, max_features=2, min_samples_split=200)
     #clf = DecisionTreeClassifier(random_state=42, max_depth=27)
     #grid = {'min_samples_split': [x for x in range(100, 1000, 100)]}
     #grid = {'C': np.power(10.0, np.arange(5, 7)), 'kernel': ['poly', 'sigmoid'], 'gamma': np.power(10.0, np.arange(-3, 3))}
@@ -365,19 +521,40 @@ def classify_all_resonances(parameters: TesterParameters, length: int, data_len:
     #import pprint
     #pprint.pprint(gs.grid_scores_)
 
-    #learnset_slice = learnset
-    #true_class = learnset_slice[np.where(learnset_slice[:, -1] == 1)]
-    #false_class = learnset_slice[np.where(learnset_slice[:, -1] == 0)]
-    #plt.plot(true_class[:, 2], true_class[:, -2], 'bo', false_class[:, 2], false_class[:, -2], 'r^')
-    #plt.legend(['axis', 'libration'])
-    #plt.savefig('plot.png')
+    #X_train = X_train ** 2
+    #X_test = X_test ** 2
 
+    #X_train[:, 0] = X_train[:, 0] * (X_train[:, 1] +  X_train[:, 2]) + X_train[:, 3]
+    #X_test[:, 0] = X_test[:, 0] * (X_test[:, 1] +  X_test[:, 2]) + X_test[:, 3]
+    #print("Learnset: %i" % X_train.shape[0])
+    #print("Testset: %i" % X_test.shape[0])
+
+    #zero = KnezevicElems(0, 0, 0, 0)
+    #train_k = np.array([knezevic(KnezevicElems(X_train[:, 0], X_train[:, 1], X_train[:, 2], X_train[:, 3]), zero)]).T
+    #test_k = np.array([knezevic(KnezevicElems(X_test[:, 0], X_test[:, 1], X_test[:, 2], X_test[:, 3]), zero)]).T
+    #X_train = np.hstack((np.array([X_train[:, 0]]).T, train_k))
+    #X_test = np.hstack((np.array([X_test[:, 0]]).T, test_k))
+
+
+    #from sklearn.preprocessing import StandardScaler
+    #scaler = StandardScaler()
+    #X_train = scaler.fit_transform(X_train.astype(float))
+    #X_test = scaler.transform(X_test.astype(float))
+
+    #c1 = np.array([X_train[:, 0] * X_train[:, 1]]).T
+    #c2 = np.array([X_test[:, 0] * X_test[:, 1]]).T
+    #res = _classify(clf, , Y_train, np.hstack((X_test, test_k)), Y_test)
     res = _classify(clf, X_train, Y_train, X_test, Y_test)
-    table.add_row(['GB %d' % 1, ' '.join([str(x) for x in indices]),
-                   res.precision, res.recall, res.accuracy, res.TP, res.FP,
-                   res.TN, res.FN])
+    result = [res.precision, res.recall, res.accuracy, res.TP, res.FP, res.TN, res.FN]
+    table.add_row([str(clf.__class__), ' '.join([str(x) for x in indices])] + result)
 
-    print('\n')
+    #from os.path import exists as opexist
+    #name = 'data.csv'
+    #mode = 'a' if opexist(name) else 'w'
+    #with open(name, mode) as fd:
+        #fd.write(';'.join([str(x) for x in ([X_train.shape[0], X_test.shape[0]] + result)]))
+        #fd.write('\n')
+
     print(table.draw())
 
 

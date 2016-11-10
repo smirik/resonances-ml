@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 import click
 from resonancesml.commands.parameters import Catalog
+from typing import List
 
 
 @click.group()
@@ -191,23 +192,103 @@ def clear_influence_fields(librate_list: str, catalog: str, model: str,
     tester.learn()
 
 
+PRO_AXIS = 1
+PRO_ECC = 2
+PRO_I = 3
+PRO_MEAN_MOTION = -5
+
+SYN_MAG = 1
+SYN_AXIS = 2
+SYN_ECC = 3
+SYN_I = 4
+SYN_MEAN_MOTION = 5
+SYN_G = 6
+SYN_S = 7
+
+FAIL = '\033[91m'
+ENDC = '\033[0m'
+OK = '\033[92m'
+
+
+def split_to_ints(ctx: click.Context, option: click.Option, value: str):
+    return [int(x) for x in value.split()]
+
+
+@main.group()
+@click.option('--train-length', '-n', type=int)
+@click.option('--data-length', '-l', type=int)
+@click.option('--filter-noise', '-i', type=bool, is_flag=True)
+@click.option('--add-art-objects', '-a', type=bool, is_flag=True)
+@click.option('--matrix-path', '-p', type=click.Path(resolve_path=True, exists=True))
+@click.option('--librations-folder', '-f', type=click.Path(resolve_path=True, exists=True), multiple=True)
+@click.option('--integers', '-i', default=None, type=str, callback=split_to_ints)
+@click.option('--remove-cache', '-r', type=bool, is_flag=True)
+@click.option('--verbose', '-v', count=True)
+def data(train_length: int, data_length: None, matrix_path: str, librations_folder: tuple,
+         remove_cache: bool, catalog: str, verbose: int,
+         add_art_objects: bool, fields: List[int]):
+    pass
+
+
+@data.command()
+def plot():
+    pass
+
+
 @main.command(name='total-classify')
 @click.option('--train-length', '-n', type=int)
 @click.option('--data-length', '-l', type=int)
+@click.option('--filter-noise', '-i', type=bool, is_flag=True)
+@click.option('--add-art-objects', '-a', type=bool, is_flag=True)
 @click.option('--matrix-path', '-p', type=click.Path(resolve_path=True, exists=True))
-@click.option('--librations-folder', '-f', type=click.Path(resolve_path=True, exists=True))
+@click.option('--librations-folder', '-f', type=click.Path(resolve_path=True, exists=True), multiple=True)
 @click.option('--catalog', '-c', type=click.Choice([x.name for x in Catalog]), default='syn')
+@click.option('--metric', '-m', type=click.Choice(['euclidean', 'knezevic']))
 @click.option('--remove-cache', '-r', type=bool, is_flag=True)
-def total_classify(train_length: int, matrix_path: str, librations_folder, remove_cache, data_length: None, catalog: str):
+@click.option('--verbose', '-v', count=True)
+@click.option('--plot', type=bool, is_flag=True)
+@click.argument('fields', nargs=-1)
+def total_classify(train_length: int, matrix_path: str, librations_folder: tuple, remove_cache: bool,
+                   data_length: None, catalog: str, metric: str, filter_noise: bool, fields: tuple,
+                   verbose: int, plot: bool, add_art_objects: bool):
     from resonancesml.commands.datainjection import IntegersInjection
     from resonancesml.commands.parameters import get_learn_parameters
     from resonancesml.commands.classify import classify_all_resonances
+    if not metric:
+        print('%sPoint metric (key: -m)%s' % (FAIL, ENDC))
+        exit(-1)
     catalog = Catalog(catalog)
     axis_index = 1 if catalog == Catalog.pro else 2
-    injection = IntegersInjection(['p1', 'p2', 'asteroid'], matrix_path,
-                                  axis_index, librations_folder, remove_cache)
-    parameters = get_learn_parameters(catalog, injection)
-    classify_all_resonances(parameters, train_length, data_length)
+
+    fields = [[int(x) for x in fields]] if fields else None
+    if fields is None:
+        fields = {
+            Catalog.pro: [[
+                PRO_AXIS,
+                PRO_ECC,
+                PRO_I,
+                PRO_MEAN_MOTION,
+            ]],
+            Catalog.syn: [[
+                SYN_AXIS,
+                SYN_ECC,
+                SYN_I,
+                SYN_MAG,
+                SYN_G,
+                SYN_S,
+                8, 9,
+                #SYN_MEAN_MOTION,
+                -5,  # computed mean motion
+                #-2,  # resonance
+                -4,  # axis diff
+            ]]
+        }[catalog]
+    for item in librations_folder:
+        print(OK, item, ENDC, sep='')
+        injection = IntegersInjection(['p1', 'p2', 'asteroid'], matrix_path,
+                                      axis_index, item, remove_cache)
+        parameters = get_learn_parameters(catalog, injection, fields)
+        classify_all_resonances(parameters, train_length, data_length, filter_noise, add_art_objects, metric, plot, verbose)
 
 
 if __name__ == '__main__':
