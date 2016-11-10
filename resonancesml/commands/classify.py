@@ -51,7 +51,7 @@ def _get_datasets(librate_list: str, all_librated: str, parameters: TesterParame
     if parameters.injection:
         catalog_features = parameters.injection.update_data(catalog_features)
 
-    librated_asteroids = get_asteroids(librate_list,  catalog_features[:, 0].astype(int))
+    librated_asteroids = get_asteroids(librate_list, catalog_features[:, 0].astype(int))
     if slice_len is None:
         slice_len = librated_asteroids[-1]
 
