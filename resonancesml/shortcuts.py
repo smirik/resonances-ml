@@ -3,6 +3,11 @@ import numpy as np
 from typing import List
 from sklearn.preprocessing import StandardScaler
 
+
+FAIL = '\033[91m'
+ENDC = '\033[0m'
+
+
 class ProgressBar:
     def __init__(self, total: int, width: int, title=''):
         sys.stdout.write("%s [%s]" % (title, " " * width))
