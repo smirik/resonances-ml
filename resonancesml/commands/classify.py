@@ -1,8 +1,7 @@
 from sklearn.neighbors import KNeighborsClassifier
-import os
-import matplotlib.pyplot as plt
 #from sklearn.cross_validation import KFold
 #from sklearn.preprocessing import normalize
+from .plot import plot as _plot
 from resonancesml.loader import get_asteroids
 from resonancesml.loader import get_catalog_dataset
 from resonancesml.loader import get_learn_set
@@ -28,8 +27,6 @@ from texttable import Texttable
 from sklearn.base import ClassifierMixin
 
 from .parameters import TesterParameters
-from .knezevic import KnezevicElems
-from .knezevic import knezevic
 from .knezevic import knezevic_metric
 
 
@@ -372,73 +369,31 @@ def _separate_dataset(indices: List[int], learnset: np.ndarray, trainset: np.nda
     return X_train, X_test, Y_train, Y_test
 
 
-def _plot(feature_matrix: np.ndarray, target_vector: np.ndarray, plot_title: str = None):
-    true_cond = np.where(target_vector == 1)
-    false_cond = np.where(target_vector != 1)
-    true_class = feature_matrix[true_cond]
-    false_class = feature_matrix[false_cond]
+class DatasetBuilder:
+    def __init__(self, parameters: TesterParameters, train_length: int, data_len: int,
+                 filter_noise: bool, add_art_objects: bool, verbose: int):
+        self._parameters = parameters
+        self._train_length = train_length
+        self._data_len = data_len
+        self._filter_noise = filter_noise
+        self._add_art_objects = add_art_objects
+        self._verbose = verbose
 
-    ecc1 = true_class[:, 1]
-    ecc2 = false_class[:, 1]
+    def build(self) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+        learnset, trainset = _build_datasets(self._parameters, self._train_length, self._data_len,
+                                             self._filter_noise, self._verbose)
+        resonance_view = learnset[0][-3]
 
-    sini1 = true_class[:, 2]
-    sini2 = false_class[:, 2]
-    mag1 = true_class[:, 3]
-    mag2 = false_class[:, 3]
+        indices = self._parameters.indices_cases[0]
+        X_train, X_test, Y_train, Y_test = _separate_dataset(indices, learnset, trainset)
 
-    zero = KnezevicElems(0, 0, 0, 0)
-    knez1 = knezevic(KnezevicElems(true_class[:, 0], ecc1, sini1, mag1), zero)
-    knez2 = knezevic(KnezevicElems(false_class[:, 0], ecc2, sini2, mag2), zero)
-
-    data = {
-        'axis': [true_class[:, 0], false_class[:, 0]],
-        'eccentricity': [ecc1, ecc2],
-        'sin_inclination': [sini1, sini2],
-        'magnitude': [mag1, mag2],
-        'knezevic': [knez1, knez2],
-        'axis-diff-square': [true_class[:, -1], false_class[:, -1]],
-    }
-
-    data_keys = [x for x in sorted(data.keys())]
-    print("true class: ", true_class.shape)
-    print("false class: ", false_class[np.where(false_class[:, -1] < np.max(true_class[:, -1]))].shape)
-    for i, x_key in enumerate(data_keys):
-        for j, y_key in enumerate(data_keys[i + 1:]):
-            plot_number = j + i * len(data_keys)
-            plt.figure(plot_number, figsize=(15,15))
-            plt.plot(
-                data[x_key][0], data[y_key][0], 'bo',
-                data[x_key][1], data[y_key][1], 'r^',
-            )
-            plt.xlabel(x_key)
-            plt.ylabel(y_key)
-            filename = '%s_%s.png' % (x_key, y_key)
-            plt.savefig(os.path.join(os.curdir, filename), bbox_inches='tight')
-    return
-
-
-    m51 = true_class[:, 4]
-    m52 = false_class[:, 4]
-
-    #plt.plot(true_class[:, 0] * (m11 + m21) * m31,
-             #true_class[:, -1], 'bo',
-             #false_class[:, 0] * (ecc2 + sini2) * m32,
-             #false_class[:, -1], 'r^')
-    plt.plot(true_class[:, -1] * (1 - sini1),
-             m51 * knez1 * ecc1, 'bo',
-             false_class[:, -1] * (1 - sini2),
-             m52 * knez2 * ecc2, 'r^')
-    #plt.plot(true_class[:, 0],
-             #true_class[:, 1], 'bo',
-             #false_class[:, 0],
-             #false_class[:, 1], 'r^')
-    plt.ylabel('axis')
-    plt.xlabel('square of axis delta')
-    #plt.legend(['libration', 'no libration'])
-    if plot_title:
-        plt.title(str(plot_title))
-    plt.savefig('plot.png')
-    return
+        if self._add_art_objects:
+            from imblearn.over_sampling import SMOTE
+            sm = SMOTE(ratio=0.99, random_state=42)
+            X_train, Y_train = sm.fit_sample(X_train, Y_train)
+            resonance_axis = self._parameters.injection.get_resonance_axis(resonance_view)
+            X_train[:, -1] = np.power(X_train[:, 0] - resonance_axis, 2)
+        return X_train, X_test, Y_train, Y_test
 
 
 def classify_all_resonances(parameters: TesterParameters, length: int, data_len: int, filter_noise: bool,

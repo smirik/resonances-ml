@@ -17,6 +17,14 @@ class Catalog(Enum):
     cat = 'cat'
     pro = 'pro'
 
+    @property
+    def axis_index(self) -> int:
+        return {
+            'syn': 2,
+            'cat': 2,
+            'pro': 1,
+        }[self.value]
+
 
 class TesterParameters:
     def __init__(self, indices_cases: List[List[int]], catalog_path: str, catalog_width: int,

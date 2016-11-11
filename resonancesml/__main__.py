@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 import click
 from resonancesml.commands.parameters import Catalog
-from typing import List
+from typing import Dict
 
 
 @click.group()
@@ -205,13 +205,12 @@ SYN_MEAN_MOTION = 5
 SYN_G = 6
 SYN_S = 7
 
-FAIL = '\033[91m'
-ENDC = '\033[0m'
-OK = '\033[92m'
-
 
 def split_to_ints(ctx: click.Context, option: click.Option, value: str):
     return [int(x) for x in value.split()]
+
+
+dataset_builders = {}  # type: Dict[str, resonancesml.commands.classify.DatasetBuilder]
 
 
 @main.group()
@@ -221,18 +220,35 @@ def split_to_ints(ctx: click.Context, option: click.Option, value: str):
 @click.option('--add-art-objects', '-a', type=bool, is_flag=True)
 @click.option('--matrix-path', '-p', type=click.Path(resolve_path=True, exists=True))
 @click.option('--librations-folder', '-f', type=click.Path(resolve_path=True, exists=True), multiple=True)
-@click.option('--integers', '-i', default=None, type=str, callback=split_to_ints)
+@click.option('--catalog', '-c', type=click.Choice([x.name for x in Catalog]), default='syn')
+#@click.option('--fields', '-e', default=None, type=str, callback=split_to_ints)
 @click.option('--remove-cache', '-r', type=bool, is_flag=True)
 @click.option('--verbose', '-v', count=True)
 def data(train_length: int, data_length: None, matrix_path: str, librations_folder: tuple,
-         remove_cache: bool, catalog: str, verbose: int,
-         add_art_objects: bool, fields: List[int]):
-    pass
+         remove_cache: bool, catalog: str, verbose: int, filter_noise: bool,
+         add_art_objects: bool):
+    from resonancesml.commands.classify import DatasetBuilder
+    from resonancesml.commands.parameters import get_learn_parameters
+    from resonancesml.commands.datainjection import IntegersInjection
+
+    catalog = Catalog(catalog)
+    for item in librations_folder:
+        global dataset_builders
+        injection = IntegersInjection(['p1', 'p2', 'asteroid'], matrix_path,
+                                      catalog.axis_index, item, remove_cache)
+        fields = [[x for x in range(catalog.axis_index, catalog.axis_index + 3)] + [-5, -4]]
+        parameters = get_learn_parameters(catalog, injection, fields)
+        dataset_builders[item] = DatasetBuilder(parameters, train_length, data_length, filter_noise,
+                                                add_art_objects, verbose)
 
 
 @data.command()
 def plot():
-    pass
+    from resonancesml.commands.plot import plot
+    global dataset_builders
+    for key, builder in dataset_builders.items():
+        X_train, X_test, Y_train, Y_test = builder.build()
+        plot(X_train, Y_train, key.split('/')[-1])
 
 
 @main.command(name='total-classify')
@@ -251,6 +267,7 @@ def plot():
 def total_classify(train_length: int, matrix_path: str, librations_folder: tuple, remove_cache: bool,
                    data_length: None, catalog: str, metric: str, filter_noise: bool, fields: tuple,
                    verbose: int, plot: bool, add_art_objects: bool):
+    from resonancesml.shortcuts import FAIL, ENDC, OK
     from resonancesml.commands.datainjection import IntegersInjection
     from resonancesml.commands.parameters import get_learn_parameters
     from resonancesml.commands.classify import classify_all_resonances
@@ -258,7 +275,7 @@ def total_classify(train_length: int, matrix_path: str, librations_folder: tuple
         print('%sPoint metric (key: -m)%s' % (FAIL, ENDC))
         exit(-1)
     catalog = Catalog(catalog)
-    axis_index = 1 if catalog == Catalog.pro else 2
+    axis_index = catalog.axis_index
 
     fields = [[int(x) for x in fields]] if fields else None
     if fields is None:

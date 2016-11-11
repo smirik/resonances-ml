@@ -6,6 +6,7 @@ from sklearn.preprocessing import StandardScaler
 
 FAIL = '\033[91m'
 ENDC = '\033[0m'
+OK = '\033[92m'
 
 
 class ProgressBar:
