@@ -2,6 +2,8 @@
 import click
 from resonancesml.commands.parameters import Catalog
 from typing import Dict
+from typing import List
+from typing import Iterable
 
 
 @click.group()
@@ -210,45 +212,76 @@ def split_to_ints(ctx: click.Context, option: click.Option, value: str):
     return [int(x) for x in value.split()]
 
 
-dataset_builders = {}  # type: Dict[str, resonancesml.commands.classify.DatasetBuilder]
+def _unite_decorators(*decorators):
+    def deco(decorated_function):
+        for dec in reversed(decorators):
+            decorated_function = dec(decorated_function)
+        return decorated_function
+
+    return deco
 
 
-@main.group()
-@click.option('--train-length', '-n', type=int)
-@click.option('--data-length', '-l', type=int)
-@click.option('--filter-noise', '-i', type=bool, is_flag=True)
-@click.option('--add-art-objects', '-a', type=bool, is_flag=True)
-@click.option('--matrix-path', '-p', type=click.Path(resolve_path=True, exists=True))
-@click.option('--librations-folder', '-f', type=click.Path(resolve_path=True, exists=True), multiple=True)
-@click.option('--catalog', '-c', type=click.Choice([x.name for x in Catalog]), default='syn')
-#@click.option('--fields', '-e', default=None, type=str, callback=split_to_ints)
-@click.option('--remove-cache', '-r', type=bool, is_flag=True)
-@click.option('--verbose', '-v', count=True)
-def data(train_length: int, data_length: None, matrix_path: str, librations_folder: tuple,
-         remove_cache: bool, catalog: str, verbose: int, filter_noise: bool,
-         add_art_objects: bool):
+def data():
+    _unite_decorators(
+        click.option('--train-length', '-n', type=int),
+        click.option('--data-length', '-l', type=int),
+        click.option('--filter-noise', '-i', type=bool, is_flag=True),
+        click.option('--add-art-objects', '-a', type=bool, is_flag=True),
+        click.option('--matrix-path', '-p', type=click.Path(resolve_path=True, exists=True)),
+        click.option('--librations-folder', '-f', type=click.Path(resolve_path=True, exists=True), multiple=True),
+        click.option('--catalog', '-c', type=click.Choice([x.name for x in Catalog]), default='syn'),
+        click.option('--remove-cache', '-r', type=bool, is_flag=True),
+        click.option('--verbose', '-v', count=True),
+    )
+
+
+def _builder_gen(train_length: int, data_length: None, matrix_path: str, librations_folder: tuple,
+                 remove_cache: bool, catalog: str, verbose: int, filter_noise: bool,
+                 add_art_objects: bool, catalog: str, fields: list = None):
     from resonancesml.commands.classify import DatasetBuilder
     from resonancesml.commands.parameters import get_learn_parameters
     from resonancesml.commands.datainjection import IntegersInjection
-
     catalog = Catalog(catalog)
+    fields = [[x for x in range(catalog.axis_index, catalog.axis_index + 3)] + [-5, -4]]
     for item in librations_folder:
-        global dataset_builders
-        injection = IntegersInjection(['p1', 'p2', 'asteroid'], matrix_path,
-                                      catalog.axis_index, item, remove_cache)
-        fields = [[x for x in range(catalog.axis_index, catalog.axis_index + 3)] + [-5, -4]]
+        injection = IntegersInjection(None, matrix_path, catalog.axis_index, item, remove_cache)
+        parameters = get_learn_parameters(catalog, injection, fields)
+        builder = DatasetBuilder(parameters, train_length, data_length, filter_noise,
+                                                add_art_objects, verbose)
+        yield item, builder
+
+
+@main.command
+@data
+def plot(train_length: int, data_length: None, matrix_path: str, librations_folder: tuple,
+         remove_cache: bool, catalog: str, verbose: int, filter_noise: bool, add_art_objects: bool):
+    from resonancesml.commands.plot import plot
+    from resonancesml.commands.classify import DatasetBuilder
+    from resonancesml.commands.parameters import get_learn_parameters
+    from resonancesml.commands.datainjection import IntegersInjection
+    catalog = Catalog(catalog)
+    fields = [[x for x in range(catalog.axis_index, catalog.axis_index + 3)] + [-5, -4]]
+    dataset_builders = {}  # type: Dict[str, DatasetBuilder]
+    for item in librations_folder:
+        injection = IntegersInjection(None, matrix_path, catalog.axis_index, item, remove_cache)
         parameters = get_learn_parameters(catalog, injection, fields)
         dataset_builders[item] = DatasetBuilder(parameters, train_length, data_length, filter_noise,
                                                 add_art_objects, verbose)
 
-
-@data.command()
-def plot():
-    from resonancesml.commands.plot import plot
-    global dataset_builders
     for key, builder in dataset_builders.items():
         X_train, X_test, Y_train, Y_test = builder.build()
         plot(X_train, Y_train, key.split('/')[-1])
+
+
+@data.command()
+#@click.option('--metric', '-m', type=click.Choice(['euclidean', 'knezevic']))
+@click.option('--fields', '-e', type=split_to_ints)
+def classify(train_length: int, data_length: None, matrix_path: str, librations_folder: tuple,
+             remove_cache: bool, catalog: str, verbose: int, filter_noise: bool,
+             add_art_objects: bool, fields: List[int]):
+    for key, builder in dataset_builders.items():
+        X_train, X_test, Y_train, Y_test = builder.build()
+
 
 
 @main.command(name='total-classify')

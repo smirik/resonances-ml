@@ -150,9 +150,9 @@ def _classify_all(datasets: _DataSets, parameters: TesterParameters,
                            res.accuracy, res.TP, res.FP, res.TN, res.FN])
             result[name + '-' + '-'.join([str(x) for x in indices])] = res
 
-    with open('data.csv', 'w') as f:
+    with open('data.csv', 'w') as fd:
         for item in data:
-            f.write('%s\n' % item)
+            fd.write('%s\n' % item)
 
     print('\n')
     print(table.draw())
@@ -533,10 +533,10 @@ def classify_all(librate_list: str, all_librated: str, parameters: TesterParamet
         mask = np.in1d(datasets.all_librated_asteroids[50:], predicted_objects[:, 0])
         predicted_objects_FN = datasets.all_librated_asteroids[50:][np.invert(mask)].astype(str)
 
-        with open('report-%s.txt' % name, 'w') as f:
-            f.write('Predicted asteroids:\n%s\n' % ','.join(predicted_objects[:, 1]))
-            f.write('Predicted asteroids after 249567:\n%s\n' % ','.join(predicted_objects_2))
-            f.write('FP:\n%s\n' % ','.join(predicted_objects_FP))
-            f.write('FN:\n%s\n' % ','.join(predicted_objects_FN))
-            f.write('Asteroids was found by integration: %s\n' % datasets.all_librated_asteroids.shape[0])
-            f.write('Asteroids was found by ML: %s' % predicted_objects.shape[0])
+        with open('report-%s.txt' % name, 'w') as fd:
+            fd.write('Predicted asteroids:\n%s\n' % ','.join(predicted_objects[:, 1]))
+            fd.write('Predicted asteroids after 249567:\n%s\n' % ','.join(predicted_objects_2))
+            fd.write('FP:\n%s\n' % ','.join(predicted_objects_FP))
+            fd.write('FN:\n%s\n' % ','.join(predicted_objects_FN))
+            fd.write('Asteroids was found by integration: %s\n' % datasets.all_librated_asteroids.shape[0])
+            fd.write('Asteroids was found by ML: %s' % predicted_objects.shape[0])
