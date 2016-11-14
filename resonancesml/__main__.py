@@ -265,10 +265,10 @@ def plot(train_length: int, data_length: None, matrix_path: str, librations_fold
 @data()
 @click.option('--metric', '-m', type=click.Choice(['euclidean', 'knezevic']))
 @click.option('--fields', '-e', type=lambda x: [int(y) for y in x.split()])
-def classify(train_length: int, data_length: None, matrix_path: str, librations_folder: tuple,
+def test_classifier(train_length: int, data_length: None, matrix_path: str, librations_folder: tuple,
              remove_cache: bool, catalog: str, verbose: int, filter_noise: bool,
              add_art_objects: bool, fields: List[int], metric: str):
-    from resonancesml.commands.classify import test_classifier
+    from resonancesml.commands.classify import test_classifier as _test_classifier
     from resonancesml.shortcuts import ENDC, OK
     fields = [[int(x) for x in fields]] if fields else None
     builders = _builder_gen(train_length, data_length, matrix_path, librations_folder,
@@ -276,66 +276,7 @@ def classify(train_length: int, data_length: None, matrix_path: str, librations_
     for key, builder, parameters in builders:
         print(OK, key, ENDC, sep='')
         X_train, X_test, Y_train, Y_test = builder.build()
-        test_classifier(X_train, X_test, Y_train, Y_test, parameters.indices_cases[0], metric)
-        #classify_all_resonances(parameters, train_length, data_length, filter_noise,
-                                #add_art_objects, metric, verbose)
-
-
-
-@main.command(name='total-classify')
-@click.option('--train-length', '-n', type=int)
-@click.option('--data-length', '-l', type=int)
-@click.option('--filter-noise', '-i', type=bool, is_flag=True)
-@click.option('--add-art-objects', '-a', type=bool, is_flag=True)
-@click.option('--matrix-path', '-p', type=click.Path(resolve_path=True, exists=True))
-@click.option('--librations-folder', '-f', type=click.Path(resolve_path=True, exists=True), multiple=True)
-@click.option('--catalog', '-c', type=click.Choice([x.name for x in Catalog]), default='syn')
-@click.option('--metric', '-m', type=click.Choice(['euclidean', 'knezevic']))
-@click.option('--remove-cache', '-r', type=bool, is_flag=True)
-@click.option('--verbose', '-v', count=True)
-@click.argument('fields', nargs=-1)
-def total_classify(train_length: int, matrix_path: str, librations_folder: tuple, remove_cache: bool,
-                   data_length: None, catalog: str, metric: str, filter_noise: bool, fields: tuple,
-                   verbose: int, add_art_objects: bool):
-    from resonancesml.shortcuts import FAIL, ENDC, OK
-    from resonancesml.commands.datainjection import IntegersInjection
-    from resonancesml.commands.parameters import get_learn_parameters
-    from resonancesml.commands.classify import classify_all_resonances
-    if not metric:
-        print('%sPoint metric (key: -m)%s' % (FAIL, ENDC))
-        exit(-1)
-    catalog = Catalog(catalog)
-    axis_index = catalog.axis_index
-
-    fields = [[int(x) for x in fields]] if fields else None
-    if fields is None:
-        fields = {
-            Catalog.pro: [[
-                PRO_AXIS,
-                PRO_ECC,
-                PRO_I,
-                PRO_MEAN_MOTION,
-            ]],
-            Catalog.syn: [[
-                SYN_AXIS,
-                #SYN_ECC,
-                #SYN_I,
-                #SYN_MAG,
-                #SYN_G,
-                #SYN_S,
-                #8, 9,
-                #SYN_MEAN_MOTION,
-                #-5,  # computed mean motion
-                #-2,  # resonance
-                #-4,  # axis diff
-            ]]
-        }[catalog]
-    for item in librations_folder:
-        print(OK, item, ENDC, sep='')
-        injection = IntegersInjection(['p1', 'p2', 'asteroid'], matrix_path,
-                                      axis_index, item, remove_cache)
-        parameters = get_learn_parameters(catalog, injection, fields)
-        classify_all_resonances(parameters, train_length, data_length, filter_noise, add_art_objects, metric, verbose)
+        _test_classifier(X_train, X_test, Y_train, Y_test, parameters.indices_cases[0], metric)
 
 
 if __name__ == '__main__':
