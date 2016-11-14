@@ -166,7 +166,7 @@ class IntegersInjection(ADatasetInjection):
             except Exception:
                 pass
         if opexist(cache_filepath):
-            print('dataset has been loaded from cache')
+            print('Dataset has been loaded from cache')
             res = np.loadtxt(cache_filepath)
             return res[:self._data_len]
 
