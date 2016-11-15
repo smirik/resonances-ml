@@ -26,7 +26,7 @@ from .builders import build_datasets
 from .builders import separate_dataset
 
 from .parameters import TesterParameters
-from .knezevic import knezevic_metric
+from resonancesml.knezevic import knezevic_metric
 
 
 class ClassifyResult:
@@ -83,9 +83,9 @@ def _build_table() -> Texttable:
     return table
 
 
-def _get_classifiers():
+#def _get_classifiers():
     #from sklearn.linear_model import LogisticRegression
-    return {
+    #return {
         #'Decision tree': DecisionTreeClassifier(random_state=241, max_depth=39),
         #'K neighbors': KNeighborsClassifier(weights='distance', p=2, n_jobs=4, n_neighbors=5),
         #'Logistic regression': LogisticRegression(C=0.1, penalty='l2', n_jobs=4),
@@ -100,7 +100,7 @@ def _get_classifiers():
             #n_estimators=200, learning_rate=0.6, min_samples_split=10*9, max_features=4),
         #'GB4': GradientBoostingClassifier(
             #n_estimators=200, learning_rate=0.6, min_samples_split=10*9, max_features=4),
-    }
+    #}
 
 
 def _classify_all(datasets: _DataSets, parameters: TesterParameters,
@@ -145,45 +145,58 @@ def _classify_all(datasets: _DataSets, parameters: TesterParameters,
     return result
 
 
-class TrainTestGenerator(object):
-    def __init__(self, X_train, X_test, Y_train, Y_test):
-        self.X_train = X_train
-        self.X_test = X_test
-        self.Y_train = Y_train
-        self.Y_test = Y_test
+#class TrainTestGenerator(object):
+    #def __init__(self, X_train, X_test, Y_train, Y_test):
+        #self.X_train = X_train
+        #self.X_test = X_test
+        #self.Y_train = Y_train
+        #self.Y_test = Y_test
 
-        self.iterated = False
+        #self.iterated = False
 
-    def __iter__(self):
-        return self
+    #def __iter__(self):
+        #return self
 
-    def __len__(self):
-        return 1
+    #def __len__(self):
+        #return 1
 
-    def __next__(self):
-        if self.iterated:
-            self.iterated = False
-            raise StopIteration
-        self.iterated = True
-        #, self.Y_train, self.Y_test
-        #self.X_train, self.X_test
-        shape1 = self.X_train.shape[0]
-        shape2 = self.X_test.shape[0]
-        return [x for x in range(shape1)], [x for x in range(shape1, shape1 + shape2)]
+    #def __next__(self):
+        #if self.iterated:
+            #self.iterated = False
+            #raise StopIteration
+        #self.iterated = True
+        ##, self.Y_train, self.Y_test
+        ##self.X_train, self.X_test
+        #shape1 = self.X_train.shape[0]
+        #shape2 = self.X_test.shape[0]
+        #return [x for x in range(shape1)], [x for x in range(shape1, shape1 + shape2)]
+
+
+def _build_clf_kwargs(metric: str) -> dict:
+    if metric == 'euclidean':
+        return {'p': 2}
+    elif metric == 'knezevic':
+        return {'metric': knezevic_metric}
+    else:
+        raise Exception('wrong metric')
 
 
 def test_classifier(X_train: np.ndarray, X_test: np.ndarray, Y_train: np.ndarray,
                     Y_test: np.ndarray, indices: List[int], metric: str):
-    table = _build_table()
-    kwargs = {
-        'euclidean': {'p': 2},
-        'knezevic': {'metric': knezevic_metric}
-    }[metric]
-    clf = KNeighborsClassifier(weights='distance', n_jobs=4, algorithm='ball_tree', **kwargs)
+    clf = KNeighborsClassifier(weights='distance', n_jobs=1, algorithm='ball_tree', **_build_clf_kwargs(metric))
     res = _classify(clf, X_train, Y_train, X_test, Y_test)
     result = [res.precision, res.recall, res.accuracy, res.TP, res.FP, res.TN, res.FN]
+    table = _build_table()
     table.add_row([str(clf.__class__), ' '.join([str(x) for x in indices])] + result)
     print(table.draw())
+
+
+def get_librated_asteroids(X_train: np.ndarray, Y_train: np.ndarray, X_test: np.ndarray,
+                           metric: str) -> np.ndarray:
+    clf = KNeighborsClassifier(weights='distance', n_jobs=4, algorithm='ball_tree',
+                               **_build_clf_kwargs(metric))
+    clf.fit(X_train, Y_train)
+    return clf.predict(X_test)
 
 
 def classify_all_resonances(parameters: TesterParameters, length: int, data_len: int, filter_noise: bool,

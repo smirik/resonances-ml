@@ -217,7 +217,7 @@ def _unite_decorators(*decorators):
     return deco
 
 
-def data():
+def data_options():
     return _unite_decorators(
         click.option('--train-length', '-n', type=int),
         click.option('--data-length', '-l', type=int),
@@ -231,7 +231,7 @@ def data():
     )
 
 
-def _builder_gen(train_length: int, data_length: None, matrix_path: str, librations_folder: tuple,
+def _builder_gen(train_length: int, data_length: None, matrix_path: str, librations_folders: tuple,
                  remove_cache: bool, catalog: str, verbose: int, filter_noise: bool,
                  add_art_objects: bool, fields: list = None)\
         -> Iterable[Tuple[str, 'DatasetBuilder']]:
@@ -241,31 +241,31 @@ def _builder_gen(train_length: int, data_length: None, matrix_path: str, librati
     catalog = Catalog(catalog)
     if fields is None:
         fields = [[x for x in range(catalog.axis_index, catalog.axis_index + 3)] + [-5, -4]]
-    for item in librations_folder:
-        injection = IntegersInjection(None, matrix_path, catalog.axis_index, item, remove_cache)
+    for folder in librations_folders:
+        injection = IntegersInjection(None, matrix_path, catalog.axis_index, folder, remove_cache)
         parameters = get_learn_parameters(catalog, injection, fields)
         builder = DatasetBuilder(parameters, train_length, data_length, filter_noise,
                                  add_art_objects, verbose)
-        yield item, builder, parameters
+        yield folder, builder, parameters
 
 
 @main.command()
-@data()
+@data_options()
 def plot(train_length: int, data_length: None, matrix_path: str, librations_folder: tuple,
          remove_cache: bool, catalog: str, verbose: int, filter_noise: bool, add_art_objects: bool):
     from resonancesml.commands.plot import plot
     builders = _builder_gen(train_length, data_length, matrix_path, librations_folder,
                             remove_cache, catalog, verbose, filter_noise, add_art_objects)
-    for key, builder, parameters in builders:
+    for folder, builder, parameters in builders:
         X_train, X_test, Y_train, Y_test = builder.build()
-        plot(X_train, Y_train, key.split('/')[-1])
+        plot(X_train, Y_train, folder.split('/')[-1])
 
 
-@main.command()
-@data()
+@main.command('test-clf')
+@data_options()
 @click.option('--metric', '-m', type=click.Choice(['euclidean', 'knezevic']))
 @click.option('--fields', '-e', type=lambda x: [int(y) for y in x.split()])
-def test_classifier(train_length: int, data_length: None, matrix_path: str, librations_folder: tuple,
+def test_clf(train_length: int, data_length: None, matrix_path: str, librations_folder: tuple,
              remove_cache: bool, catalog: str, verbose: int, filter_noise: bool,
              add_art_objects: bool, fields: List[int], metric: str):
     from resonancesml.commands.classify import test_classifier as _test_classifier
@@ -273,10 +273,32 @@ def test_classifier(train_length: int, data_length: None, matrix_path: str, libr
     fields = [[int(x) for x in fields]] if fields else None
     builders = _builder_gen(train_length, data_length, matrix_path, librations_folder,
                             remove_cache, catalog, verbose, filter_noise, add_art_objects, fields)
-    for key, builder, parameters in builders:
-        print(OK, key, ENDC, sep='')
+    for folder, builder, parameters in builders:
+        print(OK, folder, ENDC, sep='')
         X_train, X_test, Y_train, Y_test = builder.build()
         _test_classifier(X_train, X_test, Y_train, Y_test, parameters.indices_cases[0], metric)
+
+
+@main.command()
+@data_options()
+@click.option('--metric', '-m', type=click.Choice(['euclidean', 'knezevic']))
+@click.option('--fields', '-e', type=lambda x: [int(y) for y in x.split()])
+def get(train_length: int, data_length: None, matrix_path: str, librations_folder: tuple,
+             remove_cache: bool, catalog: str, verbose: int, filter_noise: bool,
+             add_art_objects: bool, fields: List[int], metric: str):
+    from resonancesml.commands.classify import get_librated_asteroids
+    from resonancesml.shortcuts import ENDC, OK
+    from resonancesml.output import save_asteroids
+    import os
+
+    fields = [[int(x) for x in fields]] if fields else None
+    builders = _builder_gen(train_length, data_length, matrix_path, librations_folder,
+                            remove_cache, catalog, verbose, filter_noise, add_art_objects, fields)
+    for folder, builder, parameters in builders:
+        print(OK, folder, ENDC, sep='')
+        X_train, X_test, Y_train, Y_test = builder.build()
+        classes = get_librated_asteroids(X_train, Y_train, X_test, metric)
+        save_asteroids(builder.trainset[:, 0][classes == 1].astype(int), os.path.basename(folder))
 
 
 if __name__ == '__main__':

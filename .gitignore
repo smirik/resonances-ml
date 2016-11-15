@@ -7,3 +7,4 @@ resonances_ml.egg-info/
 *.lprof
 *.so
 build
+*.pyc

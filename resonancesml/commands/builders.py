@@ -29,14 +29,24 @@ class DatasetBuilder:
         self._filter_noise = filter_noise
         self._add_art_objects = add_art_objects
         self._verbose = verbose
+        self._learnset = None  # type: np.ndarray
+        self._trainset = None  # type: np.ndarray
+
+    @property
+    def learnset(self) -> np.ndarray:
+        return self._learnset
+
+    @property
+    def trainset(self) -> np.ndarray:
+        return self._trainset
 
     def build(self) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
-        learnset, trainset = build_datasets(self._parameters, self._train_length, self._data_len,
-                                             self._filter_noise, self._verbose)
-        resonance_view = learnset[0][-3]
+        self._learnset, self._trainset = build_datasets(self._parameters, self._train_length, self._data_len,
+                                            self._filter_noise, self._verbose)
+        resonance_view = self._learnset[0][-3]
 
         indices = self._parameters.indices_cases[0]
-        X_train, X_test, Y_train, Y_test = separate_dataset(indices, learnset, trainset)
+        X_train, X_test, Y_train, Y_test = separate_dataset(indices, self._learnset, self._trainset)
 
         if self._add_art_objects:
             from imblearn.over_sampling import SMOTE
@@ -221,5 +231,4 @@ def _filter_noises(dataset: np.ndarray, libration_views: Dict[str, float], axis_
             filtered_dataset = np.vstack((filtered_dataset, suitable_objs))
 
     return np.array(filtered_dataset)
-
 

@@ -1,9 +1,11 @@
 import numpy as np
-from .knezevic import KnezevicElems, knezevic
+from resonancesml.knezevic import KnezevicElems
 import os
 import matplotlib.pyplot as plt
 
-def plot(feature_matrix: np.ndarray, target_vector: np.ndarray, folder: str, plot_title: str = None):
+
+def plot(feature_matrix: np.ndarray, target_vector: np.ndarray, folder: str,
+         plot_title: str = None):
     true_cond = np.where(target_vector == 1)
     false_cond = np.where(target_vector != 1)
     true_class = feature_matrix[true_cond]
@@ -19,8 +21,8 @@ def plot(feature_matrix: np.ndarray, target_vector: np.ndarray, folder: str, plo
     mean2 = false_class[:, -2]
 
     zero = KnezevicElems(0, 0, 0, 0)
-    knez1 = knezevic(KnezevicElems(true_class[:, 0], ecc1, sini1, mean1), zero)
-    knez2 = knezevic(KnezevicElems(false_class[:, 0], ecc2, sini2, mean2), zero)
+    knez1 = KnezevicElems(true_class[:, 0], ecc1, sini1, mean1) - zero
+    knez2 = KnezevicElems(false_class[:, 0], ecc2, sini2, mean2) - zero
 
     data = {
         'axis': [true_class[:, 0], false_class[:, 0]],
@@ -34,7 +36,7 @@ def plot(feature_matrix: np.ndarray, target_vector: np.ndarray, folder: str, plo
     for i, x_key in enumerate(data_keys):
         for j, y_key in enumerate(data_keys[i + 1:]):
             plot_number = j + i * len(data_keys)
-            plt.figure(plot_number, figsize=(15,15))
+            plt.figure(plot_number, figsize=(15, 15))
             plt.plot(
                 data[x_key][0], data[y_key][0], 'bo',
                 data[x_key][1], data[y_key][1], 'r^',
@@ -45,4 +47,7 @@ def plot(feature_matrix: np.ndarray, target_vector: np.ndarray, folder: str, plo
             path = os.path.join(os.curdir, folder)
             if not os.path.exists(path):
                 os.mkdir(path)
+            if plot_title:
+                plt.title(plot_title)
             plt.savefig(os.path.join(path, filename), bbox_inches='tight')
+
