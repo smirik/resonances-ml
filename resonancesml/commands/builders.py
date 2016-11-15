@@ -2,7 +2,7 @@
 Module builders contains methods and classes for building train and test data.
 """
 from resonancesml.loader import get_catalog_dataset
-from .parameters import TesterParameters
+from .parameters import DatasetParameters
 from resonancesml.shortcuts import ProgressBar
 import numpy as np
 from typing import Tuple
@@ -21,7 +21,7 @@ class EmptyFeatures(Exception):
 
 
 class DatasetBuilder:
-    def __init__(self, parameters: TesterParameters, train_length: int, data_len: int,
+    def __init__(self, parameters: DatasetParameters, train_length: int, data_len: int,
                  filter_noise: bool, add_art_objects: bool, verbose: int):
         self._parameters = parameters
         self._train_length = train_length
@@ -30,23 +30,47 @@ class DatasetBuilder:
         self._add_art_objects = add_art_objects
         self._verbose = verbose
         self._learnset = None  # type: np.ndarray
-        self._trainset = None  # type: np.ndarray
+        self._testset = None  # type: np.ndarray
 
     @property
     def learnset(self) -> np.ndarray:
         return self._learnset
 
     @property
-    def trainset(self) -> np.ndarray:
-        return self._trainset
+    def testset(self) -> np.ndarray:
+        return self._testset
+
+    def _build_datasets(self) -> Tuple[np.ndarray, np.ndarray]:
+        """
+        Returns dataset for learning and testing.
+        :param parameters: parameters for testing classificators.
+        :param length: length of learnset.
+        :param data_len: it length of data from catalog.
+        """
+        self._parameters.injection.set_data_len(self._data_len)
+        try:
+            learnset, testset = _get_feature_matricies(self._parameters, self._train_length)
+        except EmptyFeatures:
+            print('\033[91mThere is no object\033[0m')
+            exit(-1)
+        learnset = _serialize_integers(learnset)
+        testset = _serialize_integers(testset)
+
+        additional_features = _get_librations_ratios(learnset, self._verbose > 0)
+        learnset = _update_feature_matrix(learnset, additional_features, self._verbose > 0)
+        testset = _update_feature_matrix(testset, additional_features, self._verbose > 0)
+
+        if self._filter_noise:
+            learnset = _filter_noises(learnset, additional_features, self._verbose > 1)
+        return learnset, testset
+
 
     def build(self) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
-        self._learnset, self._trainset = build_datasets(self._parameters, self._train_length, self._data_len,
-                                            self._filter_noise, self._verbose)
+        self._learnset, self._testset = self._build_datasets()
         resonance_view = self._learnset[0][-3]
 
         indices = self._parameters.indices_cases[0]
-        X_train, X_test, Y_train, Y_test = separate_dataset(indices, self._learnset, self._trainset)
+        X_train, X_test, Y_train, Y_test = separate_dataset(indices, self._learnset, self._testset)
 
         if self._add_art_objects:
             from imblearn.over_sampling import SMOTE
@@ -57,45 +81,12 @@ class DatasetBuilder:
         return X_train, X_test, Y_train, Y_test
 
 
-def build_datasets(parameters: TesterParameters, length: int, data_len: int, filter_noise: bool,
-                    verbose: int) -> Tuple[np.ndarray, np.ndarray]:
-    """
-    :param parameters: parameters for testing classificators.
-    :param length: length of learnset.
-    :param data_len: it length of data from catalog.
-    """
-    parameters.injection.set_data_len(data_len)
-    try:
-        learnset, trainset = _get_feature_matricies(parameters, length)
-    except EmptyFeatures:
-        print('\033[91mThere is no object\033[0m')
-        exit(-1)
-    learnset = _serialize_integers(learnset)
-    trainset = _serialize_integers(trainset)
-
-    additional_features = _get_librations_for_resonances(learnset, verbose > 0)
-    learnset = _update_feature_matrix(learnset, additional_features, verbose > 0)
-    trainset = _update_feature_matrix(trainset, additional_features, verbose > 0)
-
-    if filter_noise:
-        learnset = _filter_noises(learnset, additional_features, parameters.injection.axis_index, verbose > 1)
-    return learnset, trainset
-
-
-def separate_dataset(indices: List[int], learnset: np.ndarray, trainset: np.ndarray)\
+def separate_dataset(indices: List[int], learnset: np.ndarray, testset: np.ndarray)\
             -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
-    #indices = [
-        #2, 3, 4, 5
-        #1, 2, 3, mean_motion_idx
-        #2, -2, 5
-        #2, -2, 5, 1
-        #1, 2, 3, 4, 5, -2
-        #-2, -3, 6, 7,
-    #]
-    X_train = learnset[:,indices]
-    X_test = trainset[:,indices]
-    Y_train = learnset[:,-1].astype(int)
-    Y_test = trainset[:,-1].astype(int)
+    X_train = learnset[:, indices]
+    X_test = testset[:, indices]
+    Y_train = learnset[:, -1].astype(int)
+    Y_test = testset[:, -1].astype(int)
     return X_train, X_test, Y_train, Y_test
 
 
@@ -120,7 +111,7 @@ class _ResonanceView:
         return self.libration_count / self.resonance_count
 
 
-def _get_librations_for_resonances(dataset: np.ndarray, verbose: bool = False) -> Dict[str, _ResonanceView]:
+def _get_librations_ratios(dataset: np.ndarray, verbose: bool = False) -> Dict[str, _ResonanceView]:
     resonances = np.unique(dataset[:, -2])
     bar = None
     if verbose:
@@ -150,7 +141,7 @@ def _get_librations_for_resonances(dataset: np.ndarray, verbose: bool = False) -
     return resonance_librations_ratio
 
 
-def _get_feature_matricies(parameters: TesterParameters, slice_len: int)\
+def _get_feature_matricies(parameters: DatasetParameters, learn_slice_len: int)\
         -> Tuple[np.ndarray, np.ndarray]:
     catalog_features = get_catalog_dataset(parameters).values
     if parameters.injection:
@@ -158,8 +149,8 @@ def _get_feature_matricies(parameters: TesterParameters, slice_len: int)\
         if not catalog_features.shape[0]:
             raise EmptyFeatures()
 
-    learn_feature_set = catalog_features[:slice_len]  # type: np.ndarray
-    test_feature_set = catalog_features[slice_len:]  # type: np.ndarray
+    learn_feature_set = catalog_features[:learn_slice_len]  # type: np.ndarray
+    test_feature_set = catalog_features[learn_slice_len:]  # type: np.ndarray
     return learn_feature_set, test_feature_set
 
 
@@ -193,8 +184,12 @@ def _update_feature_matrix(of_X: np.ndarray, by_libration_counters: Dict[str, _R
     return of_X
 
 
-def _filter_noises(dataset: np.ndarray, libration_views: Dict[str, float], axis_index: int,
+def _filter_noises(dataset: np.ndarray, libration_views: Dict[str, float],
                    verbose: bool = False) -> np.ndarray:
+    """
+    Filters objects from false class if axis margin in range of axis margins of
+    objects from true class.
+    """
     filtered_dataset = None
     max_axis_offsets = {x: 0. for x in libration_views.keys()}
 
@@ -206,20 +201,10 @@ def _filter_noises(dataset: np.ndarray, libration_views: Dict[str, float], axis_
         is_target_true = resonance_dataset[:, -1] == 1
         is_target_false = resonance_dataset[:, -1] == 0
 
-        #filter_cond = knezevic_filter(resonance_dataset, is_target_true)
-        #suitable_objs = resonance_dataset[np.where(
-            #((is_target_false & filter_cond) | is_target_true)
-        #)]
         max_diff = np.max(resonance_dataset[np.where(is_target_true)][:, AXIS_OFFSET_INDEX])
         suitable_objs = resonance_dataset[np.where(
             ((is_target_false & (resonance_dataset[:, AXIS_OFFSET_INDEX] > max_diff)) | is_target_true)
-            #((is_target_false & (resonance_dataset[:, AXIS_OFFSET_INDEX] > max_diff) & resonance_dataset[:, -4]) | is_target_true)
         )]
-
-        #filter_cond = euclidean_filter(resonance_dataset, is_target_true, verbose)
-        #suitable_objs = resonance_dataset[np.where(
-            #((is_target_false & filter_cond) | is_target_true)
-        #)]
 
         if verbose:
             print("%s: %s -> %s" % (key, dataset[np.where(current_resonance)].shape[0],

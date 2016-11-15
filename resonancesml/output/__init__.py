@@ -13,4 +13,4 @@ OUTFOLDER = 'resonanceml-out'
 def save_asteroids(data: np.array, by_key):
     if not opexists(OUTFOLDER):
         os.mkdir(OUTFOLDER)
-    np.savetxt(opjoin(OUTFOLDER, by_key), data)
+    np.savetxt(opjoin(OUTFOLDER, by_key), data, '%d')

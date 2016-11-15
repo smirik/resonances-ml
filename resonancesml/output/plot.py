@@ -2,10 +2,19 @@ import numpy as np
 from resonancesml.knezevic import KnezevicElems
 import os
 import matplotlib.pyplot as plt
+from itertools import combinations
 
 
 def plot(feature_matrix: np.ndarray, target_vector: np.ndarray, folder: str,
          plot_title: str = None):
+    """
+    plot takes feauture set and target vector, divides feature set onto two
+    subsets on basis of classes from target_vector, marks vectors of semi-major
+    axises, eccentricities, sin(I) and mean motions by names in container, adds
+    to this container Knezevic metric distances.
+
+    When container with reorganized features is ready, plot takes pairs of feature vectors without repeations
+    """
     true_cond = np.where(target_vector == 1)
     false_cond = np.where(target_vector != 1)
     true_class = feature_matrix[true_cond]
@@ -33,21 +42,20 @@ def plot(feature_matrix: np.ndarray, target_vector: np.ndarray, folder: str,
     }
 
     data_keys = [x for x in sorted(data.keys())]
-    for i, x_key in enumerate(data_keys):
-        for j, y_key in enumerate(data_keys[i + 1:]):
-            plot_number = j + i * len(data_keys)
-            plt.figure(plot_number, figsize=(15, 15))
-            plt.plot(
-                data[x_key][0], data[y_key][0], 'bo',
-                data[x_key][1], data[y_key][1], 'r^',
-            )
-            plt.xlabel(x_key)
-            plt.ylabel(y_key)
-            filename = '%s_%s.png' % (x_key, y_key)
-            path = os.path.join(os.curdir, folder)
-            if not os.path.exists(path):
-                os.mkdir(path)
-            if plot_title:
-                plt.title(plot_title)
-            plt.savefig(os.path.join(path, filename), bbox_inches='tight')
+    for plot_number, key_pair in enumerate(combinations(data_keys, 2)):
+        x_key, y_key = key_pair
+        plt.figure(plot_number, figsize=(15, 15))
+        plt.plot(
+            data[x_key][0], data[y_key][0], 'bo',
+            data[x_key][1], data[y_key][1], 'r^',
+        )
+        plt.xlabel(x_key)
+        plt.ylabel(y_key)
+        filename = '%s_%s.png' % (x_key, y_key)
+        path = os.path.join(os.curdir, folder)
+        if not os.path.exists(path):
+            os.mkdir(path)
+        if plot_title:
+            plt.title(plot_title)
+        plt.savefig(os.path.join(path, filename), bbox_inches='tight')
 

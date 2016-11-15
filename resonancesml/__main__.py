@@ -253,7 +253,7 @@ def _builder_gen(train_length: int, data_length: None, matrix_path: str, librati
 @data_options()
 def plot(train_length: int, data_length: None, matrix_path: str, librations_folder: tuple,
          remove_cache: bool, catalog: str, verbose: int, filter_noise: bool, add_art_objects: bool):
-    from resonancesml.commands.plot import plot
+    from resonancesml.output import plot
     builders = _builder_gen(train_length, data_length, matrix_path, librations_folder,
                             remove_cache, catalog, verbose, filter_noise, add_art_objects)
     for folder, builder, parameters in builders:
@@ -298,7 +298,7 @@ def get(train_length: int, data_length: None, matrix_path: str, librations_folde
         print(OK, folder, ENDC, sep='')
         X_train, X_test, Y_train, Y_test = builder.build()
         classes = get_librated_asteroids(X_train, Y_train, X_test, metric)
-        save_asteroids(builder.trainset[:, 0][classes == 1].astype(int), os.path.basename(folder))
+        save_asteroids(builder.testset[:, 0][classes == 1], os.path.basename(folder))
 
 
 if __name__ == '__main__':

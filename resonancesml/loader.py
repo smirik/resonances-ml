@@ -1,5 +1,5 @@
 import numpy as np
-from resonancesml.commands.parameters import TesterParameters
+from resonancesml.commands.parameters import DatasetParameters
 import pandas
 from pandas import DataFrame
 from resonancesml.shortcuts import FAIL, ENDC
@@ -18,7 +18,7 @@ def get_asteroids(from_filename: str, possible_asteroids: np.ndarray) -> np.ndar
     return librated_asteroids[mask]
 
 
-def get_catalog_dataset(parameters: TesterParameters) -> DataFrame:
+def get_catalog_dataset(parameters: DatasetParameters) -> DataFrame:
     dtype = {0: str}
     dtype.update({x: float for x in range(1, parameters.catalog_width)})
     catalog_features = pandas.read_csv(  # type: DataFrame

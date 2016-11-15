@@ -13,7 +13,7 @@ from .shortcuts import perf_measure
 from pandas import DataFrame
 from sklearn import cross_validation
 
-from .parameters import TesterParameters
+from .parameters import DatasetParameters
 
 from typing import Tuple
 from sklearn.base import ClassifierMixin
@@ -65,7 +65,7 @@ def _classify(clf: ClassifierMixin, kf: cross_validation.KFold, X: np.ndarray, Y
 
 
 class MethodComparer:
-    def __init__(self, librate_list: str, parameters: TesterParameters):
+    def __init__(self, librate_list: str, parameters: DatasetParameters):
         self._catalog_features = get_catalog_dataset(parameters)
         self._librated_asteroids = get_asteroids(
             librate_list, self._catalog_features.values[:, 0].astype(int))
