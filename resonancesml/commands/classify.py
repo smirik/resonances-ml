@@ -126,7 +126,22 @@ def _build_clf_kwargs(metric: str) -> dict:
 
 def test_classifier(X_train: np.ndarray, X_test: np.ndarray, Y_train: np.ndarray,
                     Y_test: np.ndarray, indices: List[int], metric: str):
-    clf = KNeighborsClassifier(weights='distance', n_jobs=1, algorithm='ball_tree', **_build_clf_kwargs(metric))
+    """
+    :param X_train: feature 2d matrix for learning.
+    :param X_test: feature 2d matrix with testing.
+    :param Y_train: response vector for learning.
+    :param Y_test: response vector for testing.
+    :param indices: indices of columns selected from catalog for building data.
+    They are need for report.
+    :param metric: metric used by KNN classifier.
+
+    Trains classifier and test it. After testing show results divided on basis
+    of general metrics (precision, recall, accuracy). Also shows numbers of
+    classified objects separated on true positive (TP), false positive (FP),
+    true negative (TN), false negative (FN).
+    """
+    clf = KNeighborsClassifier(weights='distance', n_jobs=1, algorithm='ball_tree',
+                               **_build_clf_kwargs(metric))
     res = _classify(clf, X_train, Y_train, X_test, Y_test)
     result = [res.precision, res.recall, res.accuracy, res.TP, res.FP, res.TN, res.FN]
     table = _build_table()
@@ -136,6 +151,9 @@ def test_classifier(X_train: np.ndarray, X_test: np.ndarray, Y_train: np.ndarray
 
 def get_librated_asteroids(X_train: np.ndarray, Y_train: np.ndarray, X_test: np.ndarray,
                            metric: str) -> np.ndarray:
+    """
+    Returns vector of asteroid's numbers that librates. This vector is get by classifier.
+    """
     clf = KNeighborsClassifier(weights='distance', n_jobs=4, algorithm='ball_tree',
                                **_build_clf_kwargs(metric))
     clf.fit(X_train, Y_train)
@@ -147,12 +165,15 @@ def clear_classify_all(all_librated: str, parameters: DatasetParameters, length)
     _classify_all(datasets, parameters)
 
 
-def classify_all(librate_list: str, all_librated: str, parameters: DatasetParameters, clf_name: str = None):
+def classify_all(librate_list: str, all_librated: str, parameters: DatasetParameters,
+                 clf_name: str = None):
     datasets = _get_datasets(librate_list, all_librated, parameters)
     res = _classify_all(datasets, parameters, clf_name)
     for name, result in res.items():
         numbers_int = np.array([datasets.test_feature_set[:, 0].astype(int)]).T
-        all_objects = np.hstack((numbers_int, datasets.test_feature_set, np.array([result.predictions]).T))
+        all_objects = np.hstack((
+            numbers_int, datasets.test_feature_set, np.array([result.predictions]).T
+        ))
 
         predicted_objects = all_objects[np.where(all_objects[:, -1] == 1)]
         predicted_objects_2 = predicted_objects[np.where(predicted_objects[:, 0] > 249567)][:, 1]
