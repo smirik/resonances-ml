@@ -6,6 +6,7 @@ from .parameters import DatasetParameters
 from resonancesml.shortcuts import ProgressBar
 from resonancesml.commands.datainjection import IntegersInjection
 import numpy as np
+from typing import Iterable
 from typing import Tuple
 from typing import List
 from typing import Dict
@@ -45,14 +46,15 @@ class DatasetBuilder:
     def _build_datasets(self) -> Tuple[np.ndarray, np.ndarray]:
         """
         Returns dataset for learning and testing.
-        :param parameters: parameters for testing classificators.
-        :param length: length of learnset.
+
+        :param parameters: parameters for testing classifiers.
+        :param length: length of learning dataset.
         :param data_len: it length of data from catalog.
         """
         injection = cast(IntegersInjection, self._parameters.injection)
         injection.set_data_len(self._data_len)
         try:
-            learnset, testset = _get_feature_matricies(self._parameters, self._train_length)
+            learnset, testset = _get_datasets(self._parameters, self._train_length)
         except EmptyFeatures:
             print('\033[91mThere is no object\033[0m')
             exit(-1)
@@ -73,7 +75,8 @@ class DatasetBuilder:
         resonance_view = self._learnset[0][-3]
 
         indices = self._parameters.indices_cases[0]
-        X_train, X_test, Y_train, Y_test = separate_dataset(indices, self._learnset, self._testset)
+        X_train, Y_train = separate_dataset(indices, self._learnset)
+        X_test, Y_test = separate_dataset(indices, self._testset)
 
         if self._add_art_objects:
             from imblearn.over_sampling import SMOTE
@@ -84,13 +87,13 @@ class DatasetBuilder:
         return X_train, X_test, Y_train, Y_test
 
 
-def separate_dataset(indices: List[int], learnset: np.ndarray, testset: np.ndarray)\
-            -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
-    X_train = learnset[:, indices]
-    X_test = testset[:, indices]
-    Y_train = learnset[:, -1].astype(int)
-    Y_test = testset[:, -1].astype(int)
-    return X_train, X_test, Y_train, Y_test
+def separate_dataset(indices: List[int], dataset: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
+    """
+    Selects columns from dataset for building features and selects last column as target vector.
+    """
+    features = dataset[:, indices]
+    targets = dataset[:, -1].astype(int, copy=False)
+    return features, targets
 
 
 def _serialize_integers(dataset: np.ndarray) -> np.ndarray:
@@ -114,38 +117,33 @@ class _ResonanceView:
         return self.libration_count / self.resonance_count
 
 
+def _progress(items: Iterable, items_size: int, title: str):
+    bar = ProgressBar(items_size, 80, title)
+    for item in items:
+        bar.update()
+        yield item
+
+
 def _get_librations_ratios(dataset: np.ndarray, verbose: bool = False) -> Dict[str, _ResonanceView]:
     resonances = np.unique(dataset[:, -2])
-    bar = None
-    if verbose:
-        bar = ProgressBar(resonances.shape[0], 80, 'Getting additional features')
-    #resonance_librations_counter = {x: 0 for x in resonances}
     resonance_librations_ratio = {x: 0 for x in resonances}
-    remains_librations_count = 0
-    remains_resonances_count = 0
+    if verbose:
+        resonances = _progress(resonances, resonances.shape[0], 'Getting additional features')
 
     for resonance in resonances:
-        if bar:
-            bar.update()
         resonance_condition = dataset[:, -2] == resonance
-        librated_indieces = np.where(resonance_condition & (dataset[:, -1] == 1))
-        libration_asteroid_count = dataset[librated_indieces].shape[0]
+        librated_indices = np.where(resonance_condition & (dataset[:, -1] == 1))
+        libration_asteroid_count = dataset[librated_indices].shape[0]
         resonance_asteroid_count = dataset[np.where(resonance_condition)].shape[0]
-        #resonance_librations_counter[resonance] += libration_asteroid_count
         resonance_librations_ratio[resonance] = _ResonanceView(
             libration_asteroid_count, resonance_asteroid_count)
 
-        if libration_asteroid_count < 100:
-            remains_librations_count = libration_asteroid_count
-            remains_resonances_count = resonance_asteroid_count
-
-    resonance_librations_ratio['other'] = _ResonanceView(
-        remains_librations_count, remains_resonances_count)
     return resonance_librations_ratio
 
 
-def _get_feature_matricies(parameters: DatasetParameters, learn_slice_len: int)\
+def _get_datasets(parameters: DatasetParameters, learn_slice_len: int)\
         -> Tuple[np.ndarray, np.ndarray]:
+    """Returns learning dataset and test dataset."""
     catalog_features = get_catalog_dataset(parameters).values
     if parameters.injection:
         catalog_features = parameters.injection.update_data(catalog_features)
@@ -157,34 +155,26 @@ def _get_feature_matricies(parameters: DatasetParameters, learn_slice_len: int)\
     return learn_feature_set, test_feature_set
 
 
-def _update_feature_matrix(of_X: np.ndarray, by_libration_counters: Dict[str, _ResonanceView],
+def _update_feature_matrix(of_dataset: np.ndarray, by_libration_counters: Dict[str, _ResonanceView],
                            verbose: bool = False) -> np.ndarray:
-    bar = None
+    """
+    Adds ratios of librations and asteroids in resonances to feature matrix.
+    Moves target vector to right. Skips zero ratios.
+    """
+    resonance_view_vector = np.zeros((of_dataset.shape[0]), dtype=float)
+    items = by_libration_counters.items()
     if verbose:
-        N = len(by_libration_counters) - 1
-        bar = ProgressBar(N, 80, 'Update feature matrix')
-    #all_librations = sum([y for x, y in by_libration_counters.items()])
+        items = _progress(items, len(items) - 1, 'Update feature matrix')
 
-    resonance_view_vector = np.zeros((of_X.shape[0]), dtype=float)
-    for resonance, resonance_view in by_libration_counters.items():
-        if bar:
-            bar.update()
-        resonance_indieces = np.where(of_X[:, -2] == resonance)
-        #if resonance_view.libration_count < 100:
-            #resonance_view_vector[resonance_indieces] = by_libration_counters['other'].ratio
-        #else:
+    for resonance, resonance_view in items:
+        resonance_indices = np.where(of_dataset[:, -2] == resonance)
         if resonance_view.resonance_count == 0:
             continue
-        resonance_view_vector[resonance_indieces] = resonance_view.ratio
+        resonance_view_vector[resonance_indices] = resonance_view.ratio
 
-    #for i, features in enumerate(of_X):
-        #resonance = features[-2]
-        #libration_count = by_libration_counters[resonance]
-        #resonance_view_vector[i] = libration_count / all_librations
-
-    of_X = np.hstack((of_X, np.array([resonance_view_vector]).T))
-    of_X[:,[-2,-1]] = of_X[:,[-1,-2]]
-    return of_X
+    of_dataset = np.hstack((of_dataset, np.array([resonance_view_vector]).T))
+    of_dataset[:,[-2,-1]] = of_dataset[:,[-1,-2]]
+    return of_dataset
 
 
 def _filter_noises(dataset: np.ndarray, libration_views: Dict[str, float],
@@ -197,8 +187,6 @@ def _filter_noises(dataset: np.ndarray, libration_views: Dict[str, float],
     max_axis_offsets = {x: 0. for x in libration_views.keys()}
 
     for key in max_axis_offsets.keys():
-        if key == 'other':
-            continue
         current_resonance = dataset[:, RESONANCE_VIEW_INDEX] == key
         resonance_dataset = dataset[np.where(current_resonance)]
         is_target_true = resonance_dataset[:, -1] == 1

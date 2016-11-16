@@ -8,12 +8,13 @@ from itertools import combinations
 def plot(feature_matrix: np.ndarray, target_vector: np.ndarray, folder: str,
          plot_title: str = None):
     """
-    plot takes feauture set and target vector, divides feature set onto two
+    plot takes feature set and target vector, divides feature set onto two
     subsets on basis of classes from target_vector, marks vectors of semi-major
-    axises, eccentricities, sin(I) and mean motions by names in container, adds
+    axes, eccentricities, sin(I) and mean motions by names in container, adds
     to this container Knezevic metric distances.
 
-    When container with reorganized features is ready, plot takes pairs of feature vectors without repeations
+    When container with reorganized features is ready, plot takes enumeration
+    of pairs of feature vectors without repetitions.
     """
     true_cond = np.where(target_vector == 1)
     false_cond = np.where(target_vector != 1)
