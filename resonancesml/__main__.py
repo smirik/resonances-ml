@@ -1,6 +1,9 @@
 #!/usr/bin/env python
 import click
 from resonancesml.commands.parameters import Catalog
+from typing import Tuple
+from typing import List
+from typing import Iterable
 
 
 @click.group()
@@ -190,6 +193,113 @@ def clear_influence_fields(librate_list: str, catalog: str, model: str,
     tester = MethodComparer(librate_list, parameters)
     tester.set_methods(classifiers, [model])
     tester.learn()
+
+
+PRO_AXIS = 1
+PRO_ECC = 2
+PRO_I = 3
+PRO_MEAN_MOTION = -5
+
+SYN_MAG = 1
+SYN_AXIS = 2
+SYN_ECC = 3
+SYN_I = 4
+SYN_MEAN_MOTION = 5
+SYN_G = 6
+SYN_S = 7
+
+
+def _unite_decorators(*decorators):
+    def deco(decorated_function):
+        for dec in reversed(decorators):
+            decorated_function = dec(decorated_function)
+        return decorated_function
+
+    return deco
+
+
+def data_options():
+    return _unite_decorators(
+        click.option('--train-length', '-n', type=int),
+        click.option('--data-length', '-l', type=int),
+        click.option('--filter-noise', '-i', type=bool, is_flag=True),
+        click.option('--add-art-objects', '-a', type=bool, is_flag=True),
+        click.option('--matrix-path', '-p', type=click.Path(resolve_path=True, exists=True)),
+        click.option('--librations-folder', '-f', type=click.Path(resolve_path=True, exists=True), multiple=True),
+        click.option('--catalog', '-c', type=click.Choice([x.name for x in Catalog]), default='syn'),
+        click.option('--remove-cache', '-r', type=bool, is_flag=True),
+        click.option('--verbose', '-v', count=True),
+    )
+
+
+def _builder_gen(train_length: int, data_length: None, matrix_path: str, librations_folders: tuple,
+                 remove_cache: bool, catalog: str, verbose: int, filter_noise: bool,
+                 add_art_objects: bool, fields: list = None)\
+        -> Iterable[Tuple[str, 'DatasetBuilder', 'TesterPararameters']]:
+    from resonancesml.commands.builders import DatasetBuilder
+    from resonancesml.commands.parameters import get_learn_parameters
+    from resonancesml.commands.datainjection import IntegersInjection
+    catalog = Catalog(catalog)
+    if fields is None:
+        fields = [[x for x in range(catalog.axis_index, catalog.axis_index + 3)] + [-5, -4]]
+    for folder in librations_folders:
+        injection = IntegersInjection(None, matrix_path, catalog.axis_index, folder, remove_cache)
+        parameters = get_learn_parameters(catalog, injection, fields)
+        builder = DatasetBuilder(parameters, train_length, data_length, filter_noise,
+                                 add_art_objects, verbose)
+        yield folder, builder, parameters
+
+
+@main.command()
+@data_options()
+def plot(train_length: int, data_length: None, matrix_path: str, librations_folder: tuple,
+         remove_cache: bool, catalog: str, verbose: int, filter_noise: bool, add_art_objects: bool):
+    from resonancesml.output import plot
+    builders = _builder_gen(train_length, data_length, matrix_path, librations_folder,
+                            remove_cache, catalog, verbose, filter_noise, add_art_objects)
+    for folder, builder, parameters in builders:
+        X_train, X_test, Y_train, Y_test = builder.build()
+        plot(X_train, Y_train, folder.split('/')[-1])
+
+
+@main.command('test-clf')
+@data_options()
+@click.option('--metric', '-m', type=click.Choice(['euclidean', 'knezevic']))
+@click.option('--fields', '-e', type=lambda x: [int(y) for y in x.split()])
+def test_clf(train_length: int, data_length: None, matrix_path: str, librations_folder: tuple,
+             remove_cache: bool, catalog: str, verbose: int, filter_noise: bool,
+             add_art_objects: bool, fields: List[int], metric: str):
+    from resonancesml.commands.classify import test_classifier as _test_classifier
+    from resonancesml.shortcuts import ENDC, OK
+    fields = [[int(x) for x in fields]] if fields else None
+    builders = _builder_gen(train_length, data_length, matrix_path, librations_folder,
+                            remove_cache, catalog, verbose, filter_noise, add_art_objects, fields)
+    for folder, builder, parameters in builders:
+        print(OK, folder, ENDC, sep='')
+        X_train, X_test, Y_train, Y_test = builder.build()
+        _test_classifier(X_train, X_test, Y_train, Y_test, parameters.indices_cases[0], metric)
+
+
+@main.command()
+@data_options()
+@click.option('--metric', '-m', type=click.Choice(['euclidean', 'knezevic']))
+@click.option('--fields', '-e', type=lambda x: [int(y) for y in x.split()])
+def get(train_length: int, data_length: None, matrix_path: str, librations_folder: tuple,
+             remove_cache: bool, catalog: str, verbose: int, filter_noise: bool,
+             add_art_objects: bool, fields: List[int], metric: str):
+    from resonancesml.commands.classify import get_librated_asteroids
+    from resonancesml.shortcuts import ENDC, OK
+    from resonancesml.output import save_asteroids
+    import os
+
+    fields = [[int(x) for x in fields]] if fields else None
+    builders = _builder_gen(train_length, data_length, matrix_path, librations_folder,
+                            remove_cache, catalog, verbose, filter_noise, add_art_objects, fields)
+    for folder, builder, parameters in builders:
+        print(OK, folder, ENDC, sep='')
+        X_train, X_test, Y_train, Y_test = builder.build()
+        classes = get_librated_asteroids(X_train, Y_train, X_test, metric)
+        save_asteroids(builder.testset[:, 0][classes == 1], os.path.basename(folder))
 
 
 if __name__ == '__main__':

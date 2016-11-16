@@ -4,3 +4,7 @@ __pycache__
 .venv
 resonances_ml.egg-info/
 .python-version
+*.lprof
+*.so
+build
+*.pyc

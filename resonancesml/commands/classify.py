@@ -5,6 +5,7 @@ from resonancesml.loader import get_learn_set
 from sklearn.tree import DecisionTreeClassifier
 from sklearn.ensemble import GradientBoostingClassifier
 from typing import Dict
+from typing import List
 import numpy as np
 from .shortcuts import perf_measure
 from resonancesml.shortcuts import get_target_vector
@@ -14,8 +15,8 @@ from sklearn.metrics import recall_score
 from sklearn.metrics import accuracy_score
 from texttable import Texttable
 from sklearn.base import ClassifierMixin
-
-from .parameters import TesterParameters
+from .parameters import DatasetParameters
+from resonancesml.knezevic import knezevic_metric
 
 
 class ClassifyResult:
@@ -43,15 +44,23 @@ class _DataSets:
         self.test_feature_set = test_feature_set
 
 
-def _get_datasets(librate_list: str, all_librated: str, parameters: TesterParameters,
+def _get_datasets(librate_list: str, all_librated: str, parameters: DatasetParameters,
                   slice_len: int = None) -> _DataSets:
+    """
+    Gets feuture dataset from catalog pointed in parameters argument, loads
+    vector of librated asteroids and separate it on train and test datasets.
+
+    :param librate_list: path to file contains vector of asteroid's numbers that librates.
+    It will be used for learning dataset.
+    :param all_librated: path to file contains vector of asteroid's numbers
+    that librates. By words from ML this numbers of objects that from true
+    class. It will be used for test set.
+    :param slice_len: points length of learning dataset. If not pointed the
+    length will be equal to last number from vector  from file pointed by path librate_list.
+    """
     all_librated_asteroids = np.loadtxt(all_librated, dtype=int)
     catalog_features = get_catalog_dataset(parameters).values
-
-    if parameters.injection:
-        catalog_features = parameters.injection.update_data(catalog_features)
-
-    librated_asteroids = get_asteroids(librate_list, catalog_features[:, 0].astype(int))
+    librated_asteroids = get_asteroids(librate_list,  catalog_features[:, 0].astype(int))
     if slice_len is None:
         slice_len = librated_asteroids[-1]
 
@@ -76,7 +85,7 @@ def _build_table() -> Texttable:
     return table
 
 
-def _classify_all(datasets: _DataSets, parameters: TesterParameters,
+def _classify_all(datasets: _DataSets, parameters: DatasetParameters,
                   clf_name: str = None) -> Dict[str, ClassifyResult]:
     table = _build_table()
     classifiers = {
@@ -105,9 +114,9 @@ def _classify_all(datasets: _DataSets, parameters: TesterParameters,
                            res.accuracy, res.TP, res.FP, res.TN, res.FN])
             result[name + '-' + '-'.join([str(x) for x in indices])] = res
 
-    with open('data.csv', 'w') as f:
+    with open('data.csv', 'w') as fd:
         for item in data:
-            f.write('%s\n' % item)
+            fd.write('%s\n' % item)
 
     print('\n')
     print(table.draw())
@@ -118,17 +127,65 @@ def _classify_all(datasets: _DataSets, parameters: TesterParameters,
     return result
 
 
-def clear_classify_all(all_librated: str, parameters: TesterParameters, length):
+def _build_clf_kwargs(metric: str) -> dict:
+    if metric == 'euclidean':
+        return {'p': 2}
+    elif metric == 'knezevic':
+        return {'metric': knezevic_metric}
+    else:
+        raise Exception('wrong metric')
+
+
+def test_classifier(X_train: np.ndarray, X_test: np.ndarray, Y_train: np.ndarray,
+                    Y_test: np.ndarray, indices: List[int], metric: str):
+    """
+    :param X_train: feature 2d matrix for learning.
+    :param X_test: feature 2d matrix with testing.
+    :param Y_train: response vector for learning.
+    :param Y_test: response vector for testing.
+    :param indices: indices of columns selected from catalog for building data.
+    They are need for report.
+    :param metric: metric used by KNN classifier.
+
+    Trains classifier and test it. After testing show results divided on basis
+    of general metrics (precision, recall, accuracy). Also shows numbers of
+    classified objects separated on true positive (TP), false positive (FP),
+    true negative (TN), false negative (FN).
+    """
+    clf = KNeighborsClassifier(weights='distance', n_jobs=1, algorithm='ball_tree',
+                               **_build_clf_kwargs(metric))
+    res = _classify(clf, X_train, Y_train, X_test, Y_test)
+    result = [res.precision, res.recall, res.accuracy, res.TP, res.FP, res.TN, res.FN]
+    table = _build_table()
+    table.add_row([str(clf.__class__), ' '.join([str(x) for x in indices])] + result)
+    print(table.draw())
+
+
+def get_librated_asteroids(X_train: np.ndarray, Y_train: np.ndarray, X_test: np.ndarray,
+                           metric: str) -> np.ndarray:
+    """
+    Returns vector of asteroid's numbers that librates. This vector is get by classifier.
+    """
+    clf = KNeighborsClassifier(weights='distance', n_jobs=4, algorithm='ball_tree',
+                               **_build_clf_kwargs(metric))
+    clf.fit(X_train, Y_train)
+    return clf.predict(X_test)
+
+
+def clear_classify_all(all_librated: str, parameters: DatasetParameters, length):
     datasets = _get_datasets(all_librated, all_librated, parameters, length)
     _classify_all(datasets, parameters)
 
 
-def classify_all(librate_list: str, all_librated: str, parameters: TesterParameters, clf_name: str = None):
+def classify_all(librate_list: str, all_librated: str, parameters: DatasetParameters,
+                 clf_name: str = None):
     datasets = _get_datasets(librate_list, all_librated, parameters)
     res = _classify_all(datasets, parameters, clf_name)
     for name, result in res.items():
         numbers_int = np.array([datasets.test_feature_set[:, 0].astype(int)]).T
-        all_objects = np.hstack((numbers_int, datasets.test_feature_set, np.array([result.predictions]).T))
+        all_objects = np.hstack((
+            numbers_int, datasets.test_feature_set, np.array([result.predictions]).T
+        ))
 
         predicted_objects = all_objects[np.where(all_objects[:, -1] == 1)]
         predicted_objects_2 = predicted_objects[np.where(predicted_objects[:, 0] > 249567)][:, 1]
@@ -138,10 +195,10 @@ def classify_all(librate_list: str, all_librated: str, parameters: TesterParamet
         mask = np.in1d(datasets.all_librated_asteroids[50:], predicted_objects[:, 0])
         predicted_objects_FN = datasets.all_librated_asteroids[50:][np.invert(mask)].astype(str)
 
-        with open('report-%s.txt' % name, 'w') as f:
-            f.write('Predicted asteroids:\n%s\n' % ','.join(predicted_objects[:, 1]))
-            f.write('Predicted asteroids after 249567:\n%s\n' % ','.join(predicted_objects_2))
-            f.write('FP:\n%s\n' % ','.join(predicted_objects_FP))
-            f.write('FN:\n%s\n' % ','.join(predicted_objects_FN))
-            f.write('Asteroids was found by integration: %s\n' % datasets.all_librated_asteroids.shape[0])
-            f.write('Asteroids was found by ML: %s' % predicted_objects.shape[0])
+        with open('report-%s.txt' % name, 'w') as fd:
+            fd.write('Predicted asteroids:\n%s\n' % ','.join(predicted_objects[:, 1]))
+            fd.write('Predicted asteroids after 249567:\n%s\n' % ','.join(predicted_objects_2))
+            fd.write('FP:\n%s\n' % ','.join(predicted_objects_FP))
+            fd.write('FN:\n%s\n' % ','.join(predicted_objects_FN))
+            fd.write('Asteroids was found by integration: %s\n' % datasets.all_librated_asteroids.shape[0])
+            fd.write('Asteroids was found by ML: %s' % predicted_objects.shape[0])

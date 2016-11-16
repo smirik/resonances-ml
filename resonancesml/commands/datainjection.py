@@ -1,6 +1,11 @@
 import numpy as np
 from abc import abstractclassmethod
 from typing import List
+from os.path import join as opjoin
+from os.path import exists as opexist
+from os import remove
+from resonancesml.shortcuts import get_target_vector
+from resonancesml.shortcuts import ProgressBar
 
 
 class ADatasetInjection(object):
@@ -31,8 +36,6 @@ class _DataFilter(ADatasetInjection):
 
     def update_data(self, X: np.ndarray) -> np.ndarray:
         X = X[np.where(np.abs(X[:, self.axis_index] - self.resonant_axis) <= self.axis_swing)]
-        integers = np.array([[5, -2, -2]] * X.shape[0])
-        X = np.hstack((X, integers))
         return X
 
 
@@ -65,3 +68,119 @@ class ClearKeplerInjection(KeplerInjection):
     def update_data(self, X: np.ndarray) -> np.ndarray:
         X = super(ClearKeplerInjection, self).update_data(X)
         return X
+
+
+class IntegersInjection(ADatasetInjection):
+    """
+    InegersInjection adds integers satisfying D'Alambert of every resonance
+    that suitable for asteroid by semi major axis. If several resonances are
+    suitable for one resonance, vector of features will be duplicated.
+    """
+    def __init__(self, headers: List[str], filepath: str, axis_index: int, librations_folder: str,
+                 clear_cache: bool):
+        super(IntegersInjection, self).__init__(headers)
+        self._resonances = np.loadtxt(filepath, dtype='float64')
+        self._axis_index = axis_index
+        self._librations_folder = librations_folder
+        self._clear_cache = clear_cache
+        self._data_len = None
+        self._INTEGERS_LEN = 3
+        self._MU = 0.01720209895
+        self._resonances_axises = {}
+
+    @property
+    def axis_index(self):
+        return self._axis_index
+
+    def set_data_len(self, value):
+        self._data_len = value
+
+    def get_resonance_axis(self, resonance_view: str) -> float:
+        """
+        :param resonance_view: string like '3.0_-1.0_-1.0'
+        """
+        if not self._resonances_axises:
+            for resonance in self._resonances:  # type: np.ndarray
+                axis = resonance[6]
+                self._resonances_axises['_'.join([str(x) for x in resonance[:3]])] = axis
+        return self._resonances_axises[resonance_view]
+
+    def _get_axis_diffs(self, for_feature_matrix: np.ndarray, for_resonant_axis: float)\
+            -> np.ndarray:
+        axis_diffs = for_feature_matrix[:, self._axis_index] - for_resonant_axis
+        axis_diffs = np.power(axis_diffs, 2)
+        axis_diffs = np.array([axis_diffs]).T
+        return axis_diffs
+
+    def _get_resonance_dataset(self, for_feature_matrix: np.ndarray, for_resonance: np.ndarray,
+                               librating_asteroids: np.ndarray) -> np.ndarray:
+        """
+        _get_resonance_dataset prepares dataset for one resonance.
+        It makes:
+            1) Adds mean motion vector.
+            2) 3 features contains integers, satisfying D'Alambert rule.
+            3) Feature vector contains squares of difference between resonance.
+            semi-major axis and asteroid semi-major axis.
+            4) Target vector and adds it to right of dataset.
+        """
+        Y = get_target_vector(librating_asteroids, for_feature_matrix.astype(int))
+
+        N = for_feature_matrix.shape[0]
+        integers = np.tile(for_resonance[:self._INTEGERS_LEN], (N, 1))
+        mean_motion_vec = self._MU / (for_feature_matrix[:, self._axis_index] ** 3)
+        mean_motion_vec = np.sqrt(mean_motion_vec.astype(float, copy=False))
+        resonant_axis = for_resonance[-1:]
+        axis_diffs = self._get_axis_diffs(for_feature_matrix, resonant_axis)
+
+        dataset = np.hstack((
+            for_feature_matrix,
+            np.array([mean_motion_vec]).T,
+            integers,
+            axis_diffs,
+            np.array([Y]).T
+        ))
+        return dataset
+
+    def update_data(self, X: np.ndarray) -> np.ndarray:
+        X[:, 0] = X[:, 0].astype(int, copy=False)
+        cache_filepath = '/tmp/cache.txt'
+        if self._clear_cache:
+            try:
+                remove(cache_filepath)
+            except Exception:
+                pass
+        if opexist(cache_filepath):
+            print('Dataset has been loaded from cache')
+            res = np.loadtxt(cache_filepath)
+            return res[:self._data_len]
+
+        print('\n')
+        bar = ProgressBar(self._resonances.shape[0], 80, 'Building dataset')
+        res = np.zeros((1, X.shape[1] + 6))
+        for resonance in self._resonances:  # type: np.ndarray
+            bar.update()
+            axis = resonance[6]
+
+            feature_matrix = X[np.where(np.abs(X[:, self._axis_index] - axis) <= 0.01)]
+            if not feature_matrix.shape[0]:
+                continue
+
+            filename = 'JUPITER-SATURN_%s' % '_'.join([
+                str(int(x)) for x in resonance[:self._INTEGERS_LEN]])
+            librated_asteroid_filepath = opjoin(self._librations_folder, filename)
+            if not opexist(librated_asteroid_filepath):
+                continue
+
+            librating_asteroid_vector = np.loadtxt(librated_asteroid_filepath, dtype=int)
+            if not librating_asteroid_vector.shape or librating_asteroid_vector.shape[0] < 50:
+                continue
+
+            dataset = self._get_resonance_dataset(feature_matrix, resonance,
+                                                  librating_asteroid_vector)
+            res = np.vstack((res, dataset))
+
+        res = np.delete(res, 0, 0)
+        sorted_res = res[res[:,0].argsort()]
+        np.savetxt(cache_filepath, sorted_res,
+                   fmt='%d %f %f %f %f %.18e %.18e %.18e %.18e %d %f %d %d %d %f %d')
+        return sorted_res[:self._data_len]
