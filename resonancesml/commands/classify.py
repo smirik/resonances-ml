@@ -46,6 +46,18 @@ class _DataSets:
 
 def _get_datasets(librate_list: str, all_librated: str, parameters: DatasetParameters,
                   slice_len: int = None) -> _DataSets:
+    """
+    Gets feuture dataset from catalog pointed in parameters argument, loads
+    vector of librated asteroids and separate it on train and test datasets.
+
+    :param librate_list: path to file contains vector of asteroid's numbers that librates.
+    It will be used for learning dataset.
+    :param all_librated: path to file contains vector of asteroid's numbers
+    that librates. By words from ML this numbers of objects that from true
+    class. It will be used for test set.
+    :param slice_len: points length of learning dataset. If not pointed the
+    length will be equal to last number from vector  from file pointed by path librate_list.
+    """
     all_librated_asteroids = np.loadtxt(all_librated, dtype=int)
     catalog_features = get_catalog_dataset(parameters).values
     librated_asteroids = get_asteroids(librate_list,  catalog_features[:, 0].astype(int))

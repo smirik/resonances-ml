@@ -7,7 +7,8 @@ from resonancesml.shortcuts import FAIL, ENDC
 
 def get_asteroids(from_filename: str, possible_asteroids: np.ndarray) -> np.ndarray:
     """
-    get_asteroids loads asteroid numbers from pointed file.
+    get_asteroids loads asteroid's numbers from pointed file. These numbers
+    will be filtered by possible_asteroids.
 
     :param from_filename: file contains asteroid numbers.
     :param possible_asteroids: 1 dimensional numpy array of integers.

@@ -4,10 +4,12 @@ Module builders contains methods and classes for building train and test data.
 from resonancesml.loader import get_catalog_dataset
 from .parameters import DatasetParameters
 from resonancesml.shortcuts import ProgressBar
+from resonancesml.commands.datainjection import IntegersInjection
 import numpy as np
 from typing import Tuple
 from typing import List
 from typing import Dict
+from typing import cast
 
 
 INTEGERS_COUNT = 3
@@ -47,7 +49,8 @@ class DatasetBuilder:
         :param length: length of learnset.
         :param data_len: it length of data from catalog.
         """
-        self._parameters.injection.set_data_len(self._data_len)
+        injection = cast(IntegersInjection, self._parameters.injection)
+        injection.set_data_len(self._data_len)
         try:
             learnset, testset = _get_feature_matricies(self._parameters, self._train_length)
         except EmptyFeatures:

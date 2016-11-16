@@ -144,6 +144,7 @@ def classify_all(librate_list: str, all_librated: str, catalog: str, fields: tup
 @click.option('--resonant-axis', '-x', type=float)
 @click.option('--axis-swing', '-s', type=float)
 @click.option('--axis-index', '-i', type=int)
+@click.option('--train-length', '-n', type=int)
 @click.argument('fields', nargs=-1)
 def clear_classify_all(all_librated: str, catalog: str, fields: tuple,
                        resonant_axis, axis_swing, axis_index, train_length):
@@ -234,7 +235,7 @@ def data_options():
 def _builder_gen(train_length: int, data_length: None, matrix_path: str, librations_folders: tuple,
                  remove_cache: bool, catalog: str, verbose: int, filter_noise: bool,
                  add_art_objects: bool, fields: list = None)\
-        -> Iterable[Tuple[str, 'DatasetBuilder']]:
+        -> Iterable[Tuple[str, 'DatasetBuilder', 'TesterPararameters']]:
     from resonancesml.commands.builders import DatasetBuilder
     from resonancesml.commands.parameters import get_learn_parameters
     from resonancesml.commands.datainjection import IntegersInjection

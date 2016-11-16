@@ -36,8 +36,6 @@ class _DataFilter(ADatasetInjection):
 
     def update_data(self, X: np.ndarray) -> np.ndarray:
         X = X[np.where(np.abs(X[:, self.axis_index] - self.resonant_axis) <= self.axis_swing)]
-        #integers = np.array([[5, -2, -2]] * X.shape[0])
-        #X = np.hstack((X, integers))
         return X
 
 
@@ -75,7 +73,7 @@ class ClearKeplerInjection(KeplerInjection):
 class IntegersInjection(ADatasetInjection):
     """
     InegersInjection adds integers satisfying D'Alambert of every resonance
-    that suitable for asteroid by semi major axis. If seeveral resonances are
+    that suitable for asteroid by semi major axis. If several resonances are
     suitable for one resonance, vector of features will be duplicated.
     """
     def __init__(self, headers: List[str], filepath: str, axis_index: int, librations_folder: str,
@@ -107,16 +105,10 @@ class IntegersInjection(ADatasetInjection):
                 self._resonances_axises['_'.join([str(x) for x in resonance[:3]])] = axis
         return self._resonances_axises[resonance_view]
 
-    def _get_axis_diffs(self, for_feature_matrix: np.ndarray, for_resonant_axis: float) -> np.ndarray:
+    def _get_axis_diffs(self, for_feature_matrix: np.ndarray, for_resonant_axis: float)\
+            -> np.ndarray:
         axis_diffs = for_feature_matrix[:, self._axis_index] - for_resonant_axis
-        #min_axis_diff = np.min(np.abs(axis_diffs))
-        #measure = 1
-        #while min_axis_diff < 1:
-            #min_axis_diff *= 10
-            #measure *= 10
-        #axis_diffs *= measure
         axis_diffs = np.power(axis_diffs, 2)
-        #axis_diffs = (axis_diffs - min(axis_diffs))/(max(axis_diffs) - min(axis_diffs))
         axis_diffs = np.array([axis_diffs]).T
         return axis_diffs
 
@@ -125,40 +117,32 @@ class IntegersInjection(ADatasetInjection):
         """
         _get_resonance_dataset prepares dataset for one resonance.
         It makes:
-            1) 3 features contains integers, satisfying D'Alambert rule.
-            2) Feature vector contains squares of difference between resonance.
+            1) Adds mean motion vector.
+            2) 3 features contains integers, satisfying D'Alambert rule.
+            3) Feature vector contains squares of difference between resonance.
             semi-major axis and asteroid semi-major axis.
-            3) Target vector and moves it to right.
-            4) adds mean motion vector.
+            4) Target vector and adds it to right of dataset.
         """
-        #if not len(librating_asteroid_vector.shape):
-            #resonance_librations_count = 1
-        #else:
-            #resonance_librations_count = librating_asteroid_vector.shape[0]
         Y = get_target_vector(librating_asteroids, for_feature_matrix.astype(int))
-        #Y = np.zeros(feature_matrix.shape[0])
-        #resonance_librations_count = 0
 
         N = for_feature_matrix.shape[0]
-        #integers_value = str(resonance[:integers_len])[1:-1].strip().replace('.', '')
         integers = np.tile(for_resonance[:self._INTEGERS_LEN], (N, 1))
-        mean_motion_vec = np.sqrt((self._MU / (for_feature_matrix[:, self._axis_index] ** 3)).astype(float))
-        for_feature_matrix = np.hstack((for_feature_matrix, np.array([mean_motion_vec]).T, integers))
+        mean_motion_vec = self._MU / (for_feature_matrix[:, self._axis_index] ** 3)
+        mean_motion_vec = np.sqrt(mean_motion_vec.astype(float, copy=False))
         resonant_axis = for_resonance[-1:]
-
-        #axis_diffs *= 10 ** 3
-        #print(axis_diffs[:10])
-        #axis_diffs = np.array([feature_matrix[:, 2] - resonant_axis]).T
         axis_diffs = self._get_axis_diffs(for_feature_matrix, resonant_axis)
-        for_feature_matrix = np.hstack((for_feature_matrix, axis_diffs))
 
-        #librations_count += resonance_librations_count
-        #feature_matrix = np.hstack((feature_matrix, np.repeat(resonance_librations_count, N).reshape(1, N).T))
-        dataset = np.hstack((for_feature_matrix, np.array([Y]).T))
+        dataset = np.hstack((
+            for_feature_matrix,
+            np.array([mean_motion_vec]).T,
+            integers,
+            axis_diffs,
+            np.array([Y]).T
+        ))
         return dataset
 
     def update_data(self, X: np.ndarray) -> np.ndarray:
-        X[:, 0] = X[:, 0].astype(int)
+        X[:, 0] = X[:, 0].astype(int, copy=False)
         cache_filepath = '/tmp/cache.txt'
         if self._clear_cache:
             try:
@@ -173,7 +157,6 @@ class IntegersInjection(ADatasetInjection):
         print('\n')
         bar = ProgressBar(self._resonances.shape[0], 80, 'Building dataset')
         res = np.zeros((1, X.shape[1] + 6))
-        #librations_count = 0
         for resonance in self._resonances:  # type: np.ndarray
             bar.update()
             axis = resonance[6]
@@ -197,12 +180,7 @@ class IntegersInjection(ADatasetInjection):
             res = np.vstack((res, dataset))
 
         res = np.delete(res, 0, 0)
-        #libration_probability_vector = np.array([res[:,-2] / librations_count]).T
-        #res = np.hstack((res, libration_probability_vector))
-        #res[:,[-1,-2]] = res[:,[-2,-1]]
         sorted_res = res[res[:,0].argsort()]
         np.savetxt(cache_filepath, sorted_res,
                    fmt='%d %f %f %f %f %.18e %.18e %.18e %.18e %d %f %d %d %d %f %d')
-                   #fmt='%d %f %f %f %f %.18e %.18e %.18e %.18e %d %d %d %d %d')
-                   #fmt='%s %f %f %f %f %.18e %.18e %.18e %.18e %d %d %d %d %d %d %f')
         return sorted_res[:self._data_len]
