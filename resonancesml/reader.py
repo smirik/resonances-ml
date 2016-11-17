@@ -1,14 +1,16 @@
 from resonancesml.settings import SYN_CATALOG_PATH
 from resonancesml.settings import CAT_CATALOG_PATH
 from resonancesml.settings import PRO_CATALOG_PATH
+import pandas
+from pandas import DataFrame
 
 from typing import List
 
 from enum import Enum
 from enum import unique
 
-from .datainjection import ADatasetInjection
-from .datainjection import KeplerInjection
+from resonancesml.datainjection import ADatasetInjection
+from resonancesml.datainjection import KeplerInjection
 
 
 @unique
@@ -26,9 +28,9 @@ class Catalog(Enum):
         }[self.value]
 
 
-class DatasetParameters:
+class CatalogReader:
     """
-    DatasetParameters stores parameters for reading data from source and building dataset.
+    CatalogReader reads data from source and building dataset by pointed parameters.
     """
     def __init__(self, indices_cases: List[List[int]], catalog_path: str, catalog_width: int,
                  delimiter: str, skiprows: int, injection: ADatasetInjection = None,
@@ -41,7 +43,8 @@ class DatasetParameters:
         :param delimiter: delimiter between headers in the catalog.
         :param skiprows: number of rows that should be skiped.
         :param injection: injection intended for modifying the dataset.
-        :param dataset_end: number of last row. It is necessary if catalog should be loaded particularly.
+        :param dataset_end: number of last row. It is necessary if catalog
+        should be loaded particularly.
         """
         self.indices_cases = indices_cases
         self.catalog_path = catalog_path
@@ -54,6 +57,16 @@ class DatasetParameters:
             self.dataset_end = dataset_end - skiprows
         else:
             self.dataset_end = None
+
+    def read(self) -> DataFrame:
+        dtype = {0: str}
+        dtype.update({x: float for x in range(1, self.catalog_width)})
+        catalog_features = pandas.read_csv(  # type: DataFrame
+            self.catalog_path, delim_whitespace=True,
+            skiprows=self.skiprows, header=None, dtype=dtype)
+        if self.dataset_end:
+            catalog_features = catalog_features[:self.dataset_end]
+        return catalog_features
 
 
 class CatalogException(Exception):
@@ -71,25 +84,25 @@ def get_injection(by_catalog: Catalog) -> ADatasetInjection:
     raise CatalogException()
 
 
-def get_learn_parameters(catalog: Catalog, injection: ADatasetInjection,
-                               indices: List[List[int]] = None) -> DatasetParameters:
-    if catalog == Catalog.syn:
-        return DatasetParameters([[2,3,4,5],[2,3,5]] if not indices else indices,
-                                SYN_CATALOG_PATH, 10, '  ', 2, injection, 406253)
-    elif catalog == Catalog.cat:
-        return DatasetParameters([[2, 3, 10], [2, 3, 4, 10]] if not indices else indices,
-                                CAT_CATALOG_PATH, 8, "\.|,", 6, injection)
-    elif catalog == Catalog.pro:
-        return DatasetParameters([[1, 2], [1, 2, 3]] if not indices else indices,
-                                PRO_CATALOG_PATH, 6, ";", 3, injection)
+def build_reader(for_catalog: Catalog, injection: ADatasetInjection,
+                 indices: List[List[int]] = None) -> CatalogReader:
+    if for_catalog == Catalog.syn:
+        return CatalogReader([[2,3,4,5],[2,3,5]] if not indices else indices,
+                             SYN_CATALOG_PATH, 10, '  ', 2, injection, 406253)
+    elif for_catalog == Catalog.cat:
+        return CatalogReader([[2, 3, 10], [2, 3, 4, 10]] if not indices else indices,
+                             CAT_CATALOG_PATH, 8, "\.|,", 6, injection)
+    elif for_catalog == Catalog.pro:
+        return CatalogReader([[1, 2], [1, 2, 3]] if not indices else indices,
+                             PRO_CATALOG_PATH, 6, ";", 3, injection)
     raise CatalogException()
 
 
-def get_compare_parameters(catalog: Catalog, injection: ADatasetInjection) -> DatasetParameters:
+def get_compare_parameters(catalog: Catalog, injection: ADatasetInjection) -> CatalogReader:
     if catalog == Catalog.syn:
-        return DatasetParameters([[2,3,4],[2,3,5],[2,4,5],[3,4,5],[2,5]],
+        return CatalogReader([[2,3,4],[2,3,5],[2,4,5],[3,4,5],[2,5]],
                          SYN_CATALOG_PATH, 10, '  ', 2, injection, 406253)
     elif catalog == Catalog.cat:
-        return DatasetParameters([[2,3,4],[2,3,8],[2,4,8],[3,4,8],[2,8]],
+        return CatalogReader([[2,3,4],[2,3,8],[2,4,8],[3,4,8],[2,8]],
                          CAT_CATALOG_PATH, 8, "\.|,", 6, injection)
     raise CatalogException()

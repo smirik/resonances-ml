@@ -1,6 +1,5 @@
 from sklearn.neighbors import KNeighborsClassifier
 from resonancesml.loader import get_asteroids
-from resonancesml.loader import get_catalog_dataset
 from resonancesml.loader import get_learn_set
 from sklearn.tree import DecisionTreeClassifier
 from sklearn.ensemble import GradientBoostingClassifier
@@ -15,7 +14,7 @@ from sklearn.metrics import recall_score
 from sklearn.metrics import accuracy_score
 from texttable import Texttable
 from sklearn.base import ClassifierMixin
-from .parameters import DatasetParameters
+from resonancesml.reader import CatalogReader
 from resonancesml.knezevic import knezevic_metric
 
 
@@ -44,10 +43,10 @@ class _DataSets:
         self.test_feature_set = test_feature_set
 
 
-def _get_datasets(librate_list: str, all_librated: str, parameters: DatasetParameters,
+def _get_datasets(librate_list: str, all_librated: str, catalog_reader: CatalogReader,
                   slice_len: int = None) -> _DataSets:
     """
-    Gets feuture dataset from catalog pointed in parameters argument, loads
+    Gets feuture dataset from catalog by pointed catalog reader argument, loads
     vector of librated asteroids and separate it on train and test datasets.
 
     :param librate_list: path to file contains vector of asteroid's numbers that librates.
@@ -55,11 +54,12 @@ def _get_datasets(librate_list: str, all_librated: str, parameters: DatasetParam
     :param all_librated: path to file contains vector of asteroid's numbers
     that librates. By words from ML this numbers of objects that from true
     class. It will be used for test set.
+    :param catalog_reader: catalog reader.
     :param slice_len: points length of learning dataset. If not pointed the
     length will be equal to last number from vector  from file pointed by path librate_list.
     """
     all_librated_asteroids = np.loadtxt(all_librated, dtype=int)
-    catalog_features = get_catalog_dataset(parameters).values
+    catalog_features = catalog_reader.read().values
     librated_asteroids = get_asteroids(librate_list,  catalog_features[:, 0].astype(int))
     if slice_len is None:
         slice_len = librated_asteroids[-1]
@@ -85,7 +85,7 @@ def _build_table() -> Texttable:
     return table
 
 
-def _classify_all(datasets: _DataSets, parameters: DatasetParameters,
+def _classify_all(datasets: _DataSets, parameters: CatalogReader,
                   clf_name: str = None) -> Dict[str, ClassifyResult]:
     table = _build_table()
     classifiers = {
@@ -164,7 +164,7 @@ def test_classifier(X_train: np.ndarray, X_test: np.ndarray, Y_train: np.ndarray
 def get_librated_asteroids(X_train: np.ndarray, Y_train: np.ndarray, X_test: np.ndarray,
                            metric: str) -> np.ndarray:
     """
-    Returns vector of asteroid's numbers that librates. This vector is get by classifier.
+    Returns classes of X_test matrix.
     """
     clf = KNeighborsClassifier(weights='distance', n_jobs=4, algorithm='ball_tree',
                                **_build_clf_kwargs(metric))
@@ -172,12 +172,12 @@ def get_librated_asteroids(X_train: np.ndarray, Y_train: np.ndarray, X_test: np.
     return clf.predict(X_test)
 
 
-def clear_classify_all(all_librated: str, parameters: DatasetParameters, length):
+def clear_classify_all(all_librated: str, parameters: CatalogReader, length):
     datasets = _get_datasets(all_librated, all_librated, parameters, length)
     _classify_all(datasets, parameters)
 
 
-def classify_all(librate_list: str, all_librated: str, parameters: DatasetParameters,
+def classify_all(librate_list: str, all_librated: str, parameters: CatalogReader,
                  clf_name: str = None):
     datasets = _get_datasets(librate_list, all_librated, parameters)
     res = _classify_all(datasets, parameters, clf_name)
