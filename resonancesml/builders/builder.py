@@ -22,11 +22,6 @@ AXIS_OFFSET_INDEX = -4
 RESONANCE_VIEW_INDEX = -3
 
 
-class AdditionalFeaturesBuilder:
-    def __init__(self, arg):
-        pass
-
-
 class DatasetBuilder(object):
     def __init__(self, dataset: np.ndarray, train_length: int, data_len: int,
                  filter_noise: bool, add_art_objects: bool, verbose: int):
@@ -38,7 +33,7 @@ class DatasetBuilder(object):
         self._verbose = verbose
         self._learnset = None  # type: np.ndarray
         self._testset = None  # type: np.ndarray
-        self._resonace_axes = None  # type: Dict[str, float]
+        self._resonance_axes = None  # type: Dict[str, float]
 
     @property
     def learnset(self) -> np.ndarray:
@@ -83,13 +78,13 @@ class DatasetBuilder(object):
         X_test, Y_test = separate_dataset(column_indices, self._testset)
 
         if self._add_art_objects:
-            assert self._resonace_axes
+            assert self._resonance_axes
             sm = SMOTE(ratio=0.99, random_state=42)
             X_train, Y_train = sm.fit_sample(X_train, Y_train)
 
             for i in range(X_train):
                 concatenation_integers = self._learnset[i][-3]
-                resonance_axis = self._resonace_axes[concatenation_integers]
+                resonance_axis = self._resonance_axes[concatenation_integers]
                 X_train[i][-1] = np.power(X_train[i][0] - resonance_axis, 2)
         return X_train, X_test, Y_train, Y_test
 
@@ -235,8 +230,9 @@ def _filter_noises(dataset: np.ndarray, libration_views: Dict[str, float],
 class TargetVectorBuilder:
     """
     TargetVectorBuilder adds integers satisfying D'Alambert of every resonance
-    that suitable for asteroid by semi major axis. If several resonances are
-    suitable for one resonance, vector of features will be duplicated.
+    that suitable for asteroid by semi major axis and adds target vector. If
+    several resonances are suitable for one resonance, vector of features will
+    be duplicated.
     """
     def __init__(self, filepath: str, axis_index: int, librations_folder: str, clear_cache: bool):
         """
