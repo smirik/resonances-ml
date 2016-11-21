@@ -1,9 +1,8 @@
 #!/usr/bin/env python
 import click
-from resonancesml.commands.parameters import Catalog
-from typing import Tuple
+from resonancesml.reader import Catalog
+from typing import Dict
 from typing import List
-from typing import Iterable
 
 
 @click.group()
@@ -53,11 +52,11 @@ def _get_classifiers():
 @click.option('--catalog', '-c', type=click.Choice([x.name for x in Catalog]))
 def learn(librate_list: str, catalog: str):
     from resonancesml.commands.learn import MethodComparer
-    from resonancesml.commands.parameters import get_learn_parameters
-    from resonancesml.commands.parameters import get_injection
+    from resonancesml.reader import build_reader
+    from resonancesml.reader import get_injection
     _catalog = Catalog(catalog)
     injection = get_injection(_catalog)
-    parameters = get_learn_parameters(_catalog, injection, None)
+    parameters = build_reader(_catalog, injection, None)
     tester = MethodComparer(librate_list, parameters)
     tester.set_methods(*(_get_classifiers()))
     tester.learn()
@@ -73,9 +72,9 @@ def _learn_tester(librate_list, model_name, parameters):
 
 def _get_injection_and_catalog(catalog: str, resonant_axis: float,
                                axis_swing: float, axis_index: int) -> tuple:
-    from resonancesml.commands.parameters import get_injection
-    from resonancesml.commands.datainjection import ClearDecorator
-    from resonancesml.commands.datainjection import ClearInjection
+    from resonancesml.reader import get_injection
+    from resonancesml.datainjection import ClearDecorator
+    from resonancesml.datainjection import ClearInjection
 
     _catalog = Catalog(catalog)
     injection = get_injection(_catalog)
@@ -94,10 +93,10 @@ def _get_injection_and_catalog(catalog: str, resonant_axis: float,
 @click.argument('fields', nargs=-1)
 def clear_influence_trainset(librate_list: str, catalog: str, model: str, fields: tuple,
                            resonant_axis: float, axis_swing: float, axis_index: int):
-    from resonancesml.commands.parameters import get_learn_parameters
+    from resonancesml.reader import build_reader
     fields = [int(x) for x in fields]
     injection, _catalog = _get_injection_and_catalog(catalog, resonant_axis, axis_swing, axis_index)
-    parameters = get_learn_parameters(_catalog, injection, [fields])
+    parameters = build_reader(_catalog, injection, [fields])
     _learn_tester(librate_list, model, parameters)
 
 
@@ -111,10 +110,10 @@ def clear_influence_trainset(librate_list: str, catalog: str, model: str, fields
 def clear_learn(librate_list: str, catalog: str, fields: tuple,
                 resonant_axis: float, axis_swing: float, axis_index: int):
     from resonancesml.commands.learn import MethodComparer
-    from resonancesml.commands.parameters import get_learn_parameters
+    from resonancesml.reader import build_reader
     injection, _catalog = _get_injection_and_catalog(catalog, resonant_axis, axis_swing, axis_index)
     fields = [[int(x) for x in fields]] if fields else None
-    parameters = get_learn_parameters(_catalog, injection, fields)
+    parameters = build_reader(_catalog, injection, fields)
     tester = MethodComparer(librate_list, parameters)
     tester.set_methods(*(_get_classifiers()))
     tester.learn()
@@ -129,12 +128,12 @@ def clear_learn(librate_list: str, catalog: str, fields: tuple,
 @click.argument('fields', nargs=-1)
 def classify_all(librate_list: str, all_librated: str, catalog: str, fields: tuple, clf: str, report: str):
     from resonancesml.commands.classify import classify_all as _classify_all
-    from resonancesml.commands.parameters import get_learn_parameters
-    from resonancesml.commands.parameters import get_injection
+    from resonancesml.reader import build_reader
+    from resonancesml.reader import get_injection
     _catalog = Catalog(catalog)
     injection = get_injection(_catalog)
     fields = [[int(x) for x in fields]] if fields else None
-    parameters = get_learn_parameters(_catalog, injection, fields)
+    parameters = build_reader(_catalog, injection, fields)
     _classify_all(librate_list, all_librated, parameters, clf)
 
 
@@ -150,10 +149,10 @@ def clear_classify_all(all_librated: str, catalog: str, fields: tuple,
                        resonant_axis, axis_swing, axis_index, train_length):
     assert fields
     from resonancesml.commands.classify import clear_classify_all as _clear_classify_all
-    from resonancesml.commands.parameters import get_learn_parameters
+    from resonancesml.reader import build_reader
     injection, _catalog = _get_injection_and_catalog(catalog, resonant_axis, axis_swing, axis_index)
     fields = [[int(x) for x in fields]] if fields else None
-    parameters = get_learn_parameters(_catalog, injection, fields)
+    parameters = build_reader(_catalog, injection, fields)
     _clear_classify_all(all_librated, parameters, train_length)
 
 
@@ -163,7 +162,7 @@ def clear_classify_all(all_librated: str, catalog: str, fields: tuple,
 @click.option('--model', '-m', type=click.Choice(['KNN', 'DT', 'GB']))
 def influence_fields(librate_list: str, catalog: str, model: str):
     from resonancesml.commands.learn import MethodComparer
-    from resonancesml.commands.parameters import get_compare_parameters
+    from resonancesml.reader import get_compare_parameters
 
     parameters = get_compare_parameters(Catalog(catalog), None)
     classifiers = { model: _get_classifier(model) }
@@ -182,9 +181,9 @@ def influence_fields(librate_list: str, catalog: str, model: str):
 def clear_influence_fields(librate_list: str, catalog: str, model: str,
                             resonant_axis, axis_swing, axis_index):
     from resonancesml.commands.learn import MethodComparer
-    from resonancesml.commands.datainjection import ClearDecorator
-    from resonancesml.commands.parameters import get_compare_parameters
-    from resonancesml.commands.parameters import get_injection
+    from resonancesml.datainjection import ClearDecorator
+    from resonancesml.reader import get_compare_parameters
+    from resonancesml.reader import get_injection
 
     _catalog = Catalog(catalog)
     injection = ClearDecorator(get_injection(_catalog), resonant_axis, axis_swing, axis_index)
@@ -218,36 +217,22 @@ def _unite_decorators(*decorators):
     return deco
 
 
-def data_options():
+def data_options(helps: Dict[str, str] = {}):
+    from resonancesml.settings import RESONANCE_TABLES
+    from resonancesml.settings import LIBRATIONS_FOLDERS
     return _unite_decorators(
-        click.option('--train-length', '-n', type=int),
+        click.option('--train-length', '-n', type=int, help=helps.get('tl', '')),
         click.option('--data-length', '-l', type=int),
         click.option('--filter-noise', '-i', type=bool, is_flag=True),
         click.option('--add-art-objects', '-a', type=bool, is_flag=True),
-        click.option('--matrix-path', '-p', type=click.Path(resolve_path=True, exists=True)),
-        click.option('--librations-folder', '-f', type=click.Path(resolve_path=True, exists=True), multiple=True),
+        click.option('--matrix-path', '-p', type=click.Path(resolve_path=True, exists=True),
+                     default=RESONANCE_TABLES['Jupiter Saturn']),
+        click.option('--librations-folder', '-f', type=click.Path(resolve_path=True, exists=True),
+                     multiple=True, default=[LIBRATIONS_FOLDERS['4J-2S-1']]),
         click.option('--catalog', '-c', type=click.Choice([x.name for x in Catalog]), default='syn'),
         click.option('--remove-cache', '-r', type=bool, is_flag=True),
         click.option('--verbose', '-v', count=True),
     )
-
-
-def _builder_gen(train_length: int, data_length: None, matrix_path: str, librations_folders: tuple,
-                 remove_cache: bool, catalog: str, verbose: int, filter_noise: bool,
-                 add_art_objects: bool, fields: list = None)\
-        -> Iterable[Tuple[str, 'DatasetBuilder', 'TesterPararameters']]:
-    from resonancesml.commands.builders import DatasetBuilder
-    from resonancesml.commands.parameters import get_learn_parameters
-    from resonancesml.commands.datainjection import IntegersInjection
-    catalog = Catalog(catalog)
-    if fields is None:
-        fields = [[x for x in range(catalog.axis_index, catalog.axis_index + 3)] + [-5, -4]]
-    for folder in librations_folders:
-        injection = IntegersInjection(None, matrix_path, catalog.axis_index, folder, remove_cache)
-        parameters = get_learn_parameters(catalog, injection, fields)
-        builder = DatasetBuilder(parameters, train_length, data_length, filter_noise,
-                                 add_art_objects, verbose)
-        yield folder, builder, parameters
 
 
 @main.command()
@@ -255,10 +240,13 @@ def _builder_gen(train_length: int, data_length: None, matrix_path: str, librati
 def plot(train_length: int, data_length: None, matrix_path: str, librations_folder: tuple,
          remove_cache: bool, catalog: str, verbose: int, filter_noise: bool, add_art_objects: bool):
     from resonancesml.output import plot
-    builders = _builder_gen(train_length, data_length, matrix_path, librations_folder,
-                            remove_cache, catalog, verbose, filter_noise, add_art_objects)
-    for folder, builder, parameters in builders:
-        X_train, X_test, Y_train, Y_test = builder.build()
+    from resonancesml.builders import builder_gen
+    from resonancesml.builders import CheckDatasetBuilderKit
+    builder_kit = CheckDatasetBuilderKit(train_length, data_length, filter_noise,
+                                         add_art_objects, verbose)
+    builders = builder_gen(builder_kit, matrix_path, librations_folder, remove_cache, catalog)
+    for folder, builder, catalog_reader in builders:
+        X_train, X_test, Y_train, Y_test = builder.build(catalog_reader.indices_cases[0])
         plot(X_train, Y_train, folder.split('/')[-1])
 
 
@@ -271,35 +259,44 @@ def test_clf(train_length: int, data_length: None, matrix_path: str, librations_
              add_art_objects: bool, fields: List[int], metric: str):
     from resonancesml.commands.classify import test_classifier as _test_classifier
     from resonancesml.shortcuts import ENDC, OK
-    fields = [[int(x) for x in fields]] if fields else None
-    builders = _builder_gen(train_length, data_length, matrix_path, librations_folder,
-                            remove_cache, catalog, verbose, filter_noise, add_art_objects, fields)
-    for folder, builder, parameters in builders:
+    from resonancesml.builders import builder_gen
+    from resonancesml.builders import CheckDatasetBuilderKit
+    fields = [int(x) for x in fields] if fields else None
+    builder_kit = CheckDatasetBuilderKit(train_length, data_length, filter_noise,
+                                         add_art_objects, verbose)
+    builders = builder_gen(builder_kit, matrix_path, librations_folder,
+                           remove_cache, catalog, fields)
+
+    for folder, builder, catalog_reader in builders:
         print(OK, folder, ENDC, sep='')
-        X_train, X_test, Y_train, Y_test = builder.build()
-        _test_classifier(X_train, X_test, Y_train, Y_test, parameters.indices_cases[0], metric)
+        X_train, X_test, Y_train, Y_test = builder.build(catalog_reader.indices_cases[0])
+        _test_classifier(X_train, X_test, Y_train, Y_test, catalog_reader.indices_cases[0], metric)
 
 
-@main.command()
-@data_options()
+@main.command(help='Creates file ./resonanceml-out/<name-of-folder> with asteroids that librate.')
+@data_options({
+    'tl': 'If not pointed. Application get asteroids from 1 to number of last librated asteroid.'
+})
 @click.option('--metric', '-m', type=click.Choice(['euclidean', 'knezevic']))
 @click.option('--fields', '-e', type=lambda x: [int(y) for y in x.split()])
 def get(train_length: int, data_length: None, matrix_path: str, librations_folder: tuple,
-             remove_cache: bool, catalog: str, verbose: int, filter_noise: bool,
-             add_art_objects: bool, fields: List[int], metric: str):
+        remove_cache: bool, catalog: str, verbose: int, filter_noise: bool,
+        add_art_objects: bool, fields: List[int], metric: str):
     from resonancesml.commands.classify import get_librated_asteroids
     from resonancesml.shortcuts import ENDC, OK
-    from resonancesml.output import save_asteroids
-    import os
+    from resonancesml.builders import builder_gen
+    from resonancesml.builders import GetDatasetBuilderKit
 
-    fields = [[int(x) for x in fields]] if fields else None
-    builders = _builder_gen(train_length, data_length, matrix_path, librations_folder,
-                            remove_cache, catalog, verbose, filter_noise, add_art_objects, fields)
-    for folder, builder, parameters in builders:
+    fields = [int(x) for x in fields] if fields else None
+    builder_kit = GetDatasetBuilderKit(train_length, data_length, filter_noise,
+                                       add_art_objects, verbose)
+    builders = builder_gen(builder_kit, matrix_path, librations_folder,
+                           remove_cache, catalog, fields)
+    for folder, builder, catalog_reader in builders:
         print(OK, folder, ENDC, sep='')
-        X_train, X_test, Y_train, Y_test = builder.build()
+        X_train, X_test, Y_train = builder.build(catalog_reader.indices_cases[0])
         classes = get_librated_asteroids(X_train, Y_train, X_test, metric)
-        save_asteroids(builder.testset[:, 0][classes == 1], os.path.basename(folder))
+        builder.save_librated_asteroids(classes, folder)
 
 
 if __name__ == '__main__':

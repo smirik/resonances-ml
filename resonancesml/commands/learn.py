@@ -8,12 +8,11 @@ from typing import Dict
 from resonancesml.shortcuts import get_target_vector
 from resonancesml.shortcuts import get_feuture_matrix
 from resonancesml.loader import get_asteroids
-from resonancesml.loader import get_catalog_dataset
 from .shortcuts import perf_measure
 from pandas import DataFrame
 from sklearn import cross_validation
 
-from .parameters import DatasetParameters
+from resonancesml.reader import CatalogReader
 
 from typing import Tuple
 from sklearn.base import ClassifierMixin
@@ -65,27 +64,27 @@ def _classify(clf: ClassifierMixin, kf: cross_validation.KFold, X: np.ndarray, Y
 
 
 class MethodComparer:
-    def __init__(self, librate_list: str, parameters: DatasetParameters):
-        self._catalog_features = get_catalog_dataset(parameters)
+    def __init__(self, librate_list: str, catalog_reader: CatalogReader):
+        self._catalog_features = catalog_reader.read().values
         self._librated_asteroids = get_asteroids(
             librate_list, self._catalog_features.values[:, 0].astype(int))
 
-        self._parameters = parameters
+        self._catalog_reader = catalog_reader
         self._classifiers = None  # type: Dict[str, ClassifierMixin]
         self._keys = None
 
     def _get_headers(self, by_indices: List[int]) -> List[str]:
         headers = []
-        header_line_number = self._parameters.skiprows - 1
-        with open(self._parameters.catalog_path) as f:
+        header_line_number = self._catalog_reader.skiprows - 1
+        with open(self._catalog_reader.catalog_path) as f:
             for i, line in enumerate(f):
                 if i == header_line_number:
                     replace_regex = re.compile("\([^\(]*\)")
                     line = replace_regex.sub(' ', line)
-                    delimiter_regex = re.compile(self._parameters.delimiter)
+                    delimiter_regex = re.compile(self._catalog_reader.delimiter)
                     headers = [x.strip() for x in delimiter_regex.split(line) if x]
-                    if self._parameters.injection:
-                        headers += self._parameters.injection.headers
+                    if self._catalog_reader.injection:
+                        headers += self._catalog_reader.injection.headers
                 elif i > header_line_number:
                     break
         res = []

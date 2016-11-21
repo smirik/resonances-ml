@@ -15,6 +15,8 @@ setup(
         'numpy==1.11.1',
         'scipy==0.18.0',
         'texttable==0.8.4',
-        'pandas==0.18.1'
+        'pandas==0.18.1',
+        'matplotlib==1.5.1',
+        'imbalanced-learn==0.1.8'
     ],
 )
