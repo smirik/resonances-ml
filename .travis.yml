@@ -1,13 +1,14 @@
 language: python
 python: 3.5
 sudo: false
+cache: pip
 
 install:
   - pip install -e .
 
 script:
-  - python -m resonancesml test-clf -n 2000 -c syn -m euclidean -e '2'
-  - python -m resonancesml get -n 2000 -c syn -m euclidean -e '2'
+  - python -m resonancesml test-clf -n 2000 -c syn -e '2' --clf='KNN 0'
+  - python -m resonancesml get -n 2000 -c syn -e '2' --clf='KNN 0'
 
 after_success:
   - wc -l resonanceml-out/4J-2S-1

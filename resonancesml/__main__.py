@@ -3,23 +3,44 @@ import click
 from resonancesml.reader import Catalog
 from typing import Dict
 from typing import List
+from resonancesml.settings import PROJECT_DIR
+from resonancesml.settings import set_config_path
+from os.path import join as opjoin
+from resonancesml.shortcuts import ClfPreset
+from resonancesml.shortcuts import get_classifier
+
+
+class ClassifierPreset(click.ParamType):
+    name = 'classifier preset'
+
+    def convert(self, value: str, param, ctx):
+        vals = value.split()
+        assert len(vals) == 2
+        return vals[0], int(vals[1])
+
+
+def _learn_options():
+    default_libration_list = opjoin(PROJECT_DIR, 'input', 'librations',
+                                    'first50_librated_asteroids_4_-2_-1')
+    return _unite_decorators(
+        click.option('--librate-list', '-l', type=click.Path(exists=True, resolve_path=True),
+                      default=default_libration_list),
+        click.option('--catalog', '-c', type=click.Choice([x.name for x in Catalog])),
+    )
+
+
+def _influence_options():
+    return _unite_decorators(
+        _learn_options(),
+        click.option('--clf', type=ClassifierPreset())
+    )
 
 
 @click.group()
-def main():
-    pass
-
-
-def _get_classifier(by_name):
-    from sklearn.neighbors import KNeighborsClassifier
-    from sklearn.tree import DecisionTreeClassifier
-    from sklearn.ensemble import GradientBoostingClassifier
-    return {
-        'KNN': KNeighborsClassifier(weights='distance', p=1, n_jobs=4),
-        'DT': DecisionTreeClassifier(random_state=241),
-        'GB': GradientBoostingClassifier(n_estimators=50, learning_rate=0.85),
-    }[by_name]
-
+@click.option('--config', '-c', type=click.Path(exists=True, resolve_path=True),
+              help='Path to custom config file')
+def main(config):
+    set_config_path(config)
 
 
 def _get_classifiers():
@@ -48,8 +69,7 @@ def _get_classifiers():
 
 
 @main.command()
-@click.option('--librate-list', '-l', type=click.Path(exists=True, resolve_path=True))
-@click.option('--catalog', '-c', type=click.Choice([x.name for x in Catalog]))
+@_learn_options
 def learn(librate_list: str, catalog: str):
     from resonancesml.commands.learn import MethodComparer
     from resonancesml.reader import build_reader
@@ -62,11 +82,11 @@ def learn(librate_list: str, catalog: str):
     tester.learn()
 
 
-def _learn_tester(librate_list, model_name, parameters):
+def _learn_tester(librate_list, clf: ClfPreset, parameters):
     from resonancesml.commands.learn import MethodComparer
     tester = MethodComparer(librate_list, parameters)
-    classifiers = { model_name: _get_classifier(model_name) }
-    tester.set_methods(classifiers, [model_name])
+    classifiers = { clf[0]: get_classifier(clf) }
+    tester.set_methods(classifiers, [clf[0]])
     tester.learn()
 
 
@@ -84,25 +104,20 @@ def _get_injection_and_catalog(catalog: str, resonant_axis: float,
 
 
 @main.command('clear-influence-trainset')
-@click.option('--librate-list', '-l', type=click.Path(exists=True, resolve_path=True))
-@click.option('--catalog', '-c', type=click.Choice([x.name for x in Catalog]))
-@click.option('--model', '-m', type=click.Choice(['KNN', 'DT', 'GB']))
+@_influence_options
 @click.option('--resonant-axis', '-x', type=float)
 @click.option('--axis-swing', '-s', type=float)
 @click.option('--axis-index', '-i', type=int)
-@click.argument('fields', nargs=-1)
-def clear_influence_trainset(librate_list: str, catalog: str, model: str, fields: tuple,
+def clear_influence_trainset(librate_list: str, catalog: str, clf: ClfPreset, fields: tuple,
                            resonant_axis: float, axis_swing: float, axis_index: int):
-    from resonancesml.reader import build_reader
-    fields = [int(x) for x in fields]
+    from resonancesml.reader import build_reader_for_influence
     injection, _catalog = _get_injection_and_catalog(catalog, resonant_axis, axis_swing, axis_index)
-    parameters = build_reader(_catalog, injection, [fields])
-    _learn_tester(librate_list, model, parameters)
+    parameters = build_reader_for_influence(_catalog, injection)
+    _learn_tester(librate_list, clf, parameters)
 
 
 @main.command(name='clear-learn')
-@click.option('--librate-list', '-l', type=click.Path(exists=True, resolve_path=True))
-@click.option('--catalog', '-c', type=click.Choice([x.name for x in Catalog]))
+@_learn_options
 @click.option('--resonant-axis', '-x', type=float)
 @click.option('--axis-swing', '-s', type=float)
 @click.option('--axis-index', '-i', type=int)
@@ -120,10 +135,9 @@ def clear_learn(librate_list: str, catalog: str, fields: tuple,
 
 
 @main.command(name='classify-all')
-@click.option('--librate-list', '-l', type=click.Path(exists=True, resolve_path=True))
+@_learn_tester
 @click.option('--all-librated', '-a', type=click.Path(exists=True, resolve_path=True))
-@click.option('--catalog', '-c', type=click.Choice([x.name for x in Catalog]))
-@click.option('--clf', type=click.Choice(['KNN', 'GB', 'DT']))
+@click.option('--clf', type=ClassifierPreset())
 @click.option('--report', type=bool, is_flag=True)
 @click.argument('fields', nargs=-1)
 def classify_all(librate_list: str, all_librated: str, catalog: str, fields: tuple, clf: str, report: str):
@@ -157,29 +171,27 @@ def clear_classify_all(all_librated: str, catalog: str, fields: tuple,
 
 
 @main.command(name='influence-fields')
-@click.option('--librate-list', '-l', type=click.Path(exists=True, resolve_path=True))
-@click.option('--catalog', '-c', type=click.Choice([x.name for x in Catalog]))
-@click.option('--model', '-m', type=click.Choice(['KNN', 'DT', 'GB']))
-def influence_fields(librate_list: str, catalog: str, model: str):
+@_influence_options
+def influence_fields(librate_list: str, catalog: str, clf: ClfPreset):
     from resonancesml.commands.learn import MethodComparer
-    from resonancesml.reader import get_compare_parameters
+    from resonancesml.reader import build_reader_for_influence
 
-    parameters = get_compare_parameters(Catalog(catalog), None)
-    classifiers = { model: _get_classifier(model) }
+    parameters = build_reader_for_influence(Catalog(catalog), None)
+    classifiers = { clf[0]: get_classifier(clf) }
     tester = MethodComparer(librate_list, parameters)
-    tester.set_methods(classifiers, [model])
+    tester.set_methods(classifiers, [clf[0]])
     tester.learn()
 
 
 @main.command(name='clear-influence-fields')
 @click.option('--librate-list', '-l', type=click.Path(exists=True, resolve_path=True))
 @click.option('--catalog', '-c', type=click.Choice([x.name for x in Catalog]))
-@click.option('--model', '-m', type=click.Choice(['KNN', 'DT', 'GB']))
+@click.option('--clf', type=ClassifierPreset())
 @click.option('--resonant-axis', '-x', type=float)
 @click.option('--axis-swing', '-s', type=float)
 @click.option('--axis-index', '-i', type=int)
-def clear_influence_fields(librate_list: str, catalog: str, model: str,
-                            resonant_axis, axis_swing, axis_index):
+def clear_influence_fields(librate_list: str, catalog: str, clf: ClfPreset,
+                           resonant_axis, axis_swing, axis_index):
     from resonancesml.commands.learn import MethodComparer
     from resonancesml.datainjection import ClearDecorator
     from resonancesml.reader import get_compare_parameters
@@ -188,9 +200,9 @@ def clear_influence_fields(librate_list: str, catalog: str, model: str,
     _catalog = Catalog(catalog)
     injection = ClearDecorator(get_injection(_catalog), resonant_axis, axis_swing, axis_index)
     parameters = get_compare_parameters(_catalog, injection)
-    classifiers = { model: _get_classifier(model) }
+    classifiers = { clf[0]: get_classifier(clf) }
     tester = MethodComparer(librate_list, parameters)
-    tester.set_methods(classifiers, [model])
+    tester.set_methods(classifiers, [clf[0]])
     tester.learn()
 
 
@@ -218,24 +230,25 @@ def _unite_decorators(*decorators):
 
 
 def data_options(helps: Dict[str, str] = {}):
-    from resonancesml.settings import RESONANCE_TABLES
-    from resonancesml.settings import LIBRATIONS_FOLDERS
     return _unite_decorators(
         click.option('--train-length', '-n', type=int, help=helps.get('tl', '')),
-        click.option('--data-length', '-l', type=int),
+        click.option('--data-length', '-l', type=int,
+                     help='Length of dataset that will be read from catalog.'),
         click.option('--filter-noise', '-i', type=bool, is_flag=True),
-        click.option('--add-art-objects', '-a', type=bool, is_flag=True),
+        click.option('--add-art-objects', '-a', type=bool, is_flag=True,
+                     help='Adds synthetic objects based on SMOTE.'),
         click.option('--matrix-path', '-p', type=click.Path(resolve_path=True, exists=True),
-                     default=RESONANCE_TABLES['Jupiter Saturn']),
+                     default=opjoin(PROJECT_DIR, 'input', 'resonance_tables', 'matrix-js.res')),
         click.option('--librations-folder', '-f', type=click.Path(resolve_path=True, exists=True),
-                     multiple=True, default=[LIBRATIONS_FOLDERS['4J-2S-1']]),
+                     multiple=True, default=[opjoin(PROJECT_DIR, 'input', 'librations', '4J-2S-1')]),
         click.option('--catalog', '-c', type=click.Choice([x.name for x in Catalog]), default='syn'),
-        click.option('--remove-cache', '-r', type=bool, is_flag=True),
+        click.option('--remove-cache', '-r', type=bool, is_flag=True,
+                     help='This commands build cache in /tmp/cache.txt. Up this flag to delete cache.'),
         click.option('--verbose', '-v', count=True),
     )
 
 
-@main.command()
+@main.command(help='Builds plots over main features of dataset.')
 @data_options()
 def plot(train_length: int, data_length: None, matrix_path: str, librations_folder: tuple,
          remove_cache: bool, catalog: str, verbose: int, filter_noise: bool, add_art_objects: bool):
@@ -250,13 +263,13 @@ def plot(train_length: int, data_length: None, matrix_path: str, librations_fold
         plot(X_train, Y_train, folder.split('/')[-1])
 
 
-@main.command('test-clf')
+@main.command('test-clf', help='Tests pointed classifer for common metrics.')
 @data_options()
-@click.option('--metric', '-m', type=click.Choice(['euclidean', 'knezevic']))
+@click.option('--clf', type=ClassifierPreset())
 @click.option('--fields', '-e', type=lambda x: [int(y) for y in x.split()])
 def test_clf(train_length: int, data_length: None, matrix_path: str, librations_folder: tuple,
              remove_cache: bool, catalog: str, verbose: int, filter_noise: bool,
-             add_art_objects: bool, fields: List[int], metric: str):
+             add_art_objects: bool, fields: List[int], clf: ClfPreset):
     from resonancesml.commands.classify import test_classifier as _test_classifier
     from resonancesml.shortcuts import ENDC, OK
     from resonancesml.builders import builder_gen
@@ -270,18 +283,19 @@ def test_clf(train_length: int, data_length: None, matrix_path: str, librations_
     for folder, builder, catalog_reader in builders:
         print(OK, folder, ENDC, sep='')
         X_train, X_test, Y_train, Y_test = builder.build(catalog_reader.indices_cases[0])
-        _test_classifier(X_train, X_test, Y_train, Y_test, catalog_reader.indices_cases[0], metric)
+        _test_classifier(X_train, X_test, Y_train, Y_test, catalog_reader.indices_cases[0], clf)
 
 
 @main.command(help='Creates file ./resonanceml-out/<name-of-folder> with asteroids that librate.')
 @data_options({
-    'tl': 'If not pointed. Application get asteroids from 1 to number of last librated asteroid.'
+    'tl': ('Length of training set. If not pointed, application gets asteroids' +
+           'from 1 to number of last librated asteroid.')
 })
-@click.option('--metric', '-m', type=click.Choice(['euclidean', 'knezevic']))
+@click.option('--clf', type=ClassifierPreset())
 @click.option('--fields', '-e', type=lambda x: [int(y) for y in x.split()])
 def get(train_length: int, data_length: None, matrix_path: str, librations_folder: tuple,
         remove_cache: bool, catalog: str, verbose: int, filter_noise: bool,
-        add_art_objects: bool, fields: List[int], metric: str):
+        add_art_objects: bool, fields: List[int], clf: ClfPreset):
     from resonancesml.commands.classify import get_librated_asteroids
     from resonancesml.shortcuts import ENDC, OK
     from resonancesml.builders import builder_gen
@@ -295,7 +309,7 @@ def get(train_length: int, data_length: None, matrix_path: str, librations_folde
     for folder, builder, catalog_reader in builders:
         print(OK, folder, ENDC, sep='')
         X_train, X_test, Y_train = builder.build(catalog_reader.indices_cases[0])
-        classes = get_librated_asteroids(X_train, Y_train, X_test, metric)
+        classes = get_librated_asteroids(X_train, Y_train, X_test, clf)
         builder.save_librated_asteroids(classes, folder)
 
 

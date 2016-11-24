@@ -1,0 +1,42 @@
+catalogs:
+  synthetic: all.syn
+  orbital: allnum.cat
+  property: allnum.pro
+
+resonance_tables:
+  js: matrix-js.res
+
+librations_folders:
+  "4J-2S-1": "4J-2S-1"
+  "all-JS": libration_asteroids_JS
+
+classifiers:
+  KNN:
+    - metric: euclidean
+    - metric: knezevic
+    - weights: distance
+      n_jobs: 1
+      algorithm: ball_tree
+      p: 2
+    - weights: distance
+      n_jobs: 1
+      algorithm: ball_tree
+      metric: knezevic
+  GB:
+    - n_estimators: 7
+      learning_rate: 0.6
+      min_samples_split: 150
+    - n_estimators: 10
+      learning_rate: 0.85
+    - n_estimators: 50
+      learning_rate: 0.85
+  DT:
+    - random_state: 241
+    - random_state: 42
+  LR:
+    - C: 0.00001
+      penalty: l1
+
+influence:
+  synthetic: [[2,3,4],[2,3,5],[2,4,5],[3,4,5],[2,5]]
+  orbital: [[2,3,4],[2,3,8],[2,4,8],[3,4,8],[2,8]]

@@ -1,6 +1,7 @@
 from resonancesml.settings import SYN_CATALOG_PATH
 from resonancesml.settings import CAT_CATALOG_PATH
 from resonancesml.settings import PRO_CATALOG_PATH
+from resonancesml.settings import params
 import pandas
 from pandas import DataFrame
 
@@ -98,11 +99,11 @@ def build_reader(for_catalog: Catalog, injection: ADatasetInjection,
     raise CatalogException()
 
 
-def get_compare_parameters(catalog: Catalog, injection: ADatasetInjection) -> CatalogReader:
+def build_reader_for_influence(catalog: Catalog, injection: ADatasetInjection) -> CatalogReader:
     if catalog == Catalog.syn:
-        return CatalogReader([[2,3,4],[2,3,5],[2,4,5],[3,4,5],[2,5]],
-                         SYN_CATALOG_PATH, 10, '  ', 2, injection, 406253)
+        indeces_cases = params()['influence']['synthetic']
+        return CatalogReader(indeces_cases, SYN_CATALOG_PATH, 10, '  ', 2, injection, 406253)
     elif catalog == Catalog.cat:
-        return CatalogReader([[2,3,4],[2,3,8],[2,4,8],[3,4,8],[2,8]],
-                         CAT_CATALOG_PATH, 8, "\.|,", 6, injection)
+        indeces_cases = params()['influence']['synthetic']
+        return CatalogReader(indeces_cases, CAT_CATALOG_PATH, 8, "\.|,", 6, injection)
     raise CatalogException()

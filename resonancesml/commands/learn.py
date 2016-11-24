@@ -67,7 +67,7 @@ class MethodComparer:
     def __init__(self, librate_list: str, catalog_reader: CatalogReader):
         self._catalog_features = catalog_reader.read().values
         self._librated_asteroids = get_asteroids(
-            librate_list, self._catalog_features.values[:, 0].astype(int))
+            librate_list, self._catalog_features[:, 0].astype(int))
 
         self._catalog_reader = catalog_reader
         self._classifiers = None  # type: Dict[str, ClassifierMixin]
@@ -96,9 +96,8 @@ class MethodComparer:
         self._classifiers = values
         self._keys = keys
 
-
     def learn(self):
-        learn_feature_set = get_learn_set(self._catalog_features.values,  # type: np.ndarray
+        learn_feature_set = get_learn_set(self._catalog_features,  # type: np.ndarray
                                           str(self._librated_asteroids[-1]))
         table = Texttable(max_width=120)
         table.header(['Classifier', 'Input data (fields)', 'precision', 'recall',
@@ -106,14 +105,14 @@ class MethodComparer:
         table.set_cols_width([30, 30, 15, 15, 15, 5, 5, 5, 5])
         table.set_precision(5)
 
-        bar = ProgressBar(len(self._parameters.indices_cases) * len(self._classifiers),
-                          'Learning', 1)
-        if self._parameters.injection:
-            learn_feature_set = self._parameters.injection.update_data(learn_feature_set)
+        bar = ProgressBar(len(self._catalog_reader.indices_cases) * len(self._classifiers), 80,
+                          'Learning')
+        if self._catalog_reader.injection:
+            learn_feature_set = self._catalog_reader.injection.update_data(learn_feature_set)
         Y = get_target_vector(self._librated_asteroids, learn_feature_set.astype(int))
 
         data = []
-        for indices in self._parameters.indices_cases:
+        for indices in self._catalog_reader.indices_cases:
             headers = self._get_headers(indices)
             X = get_feuture_matrix(learn_feature_set, False, indices)
 

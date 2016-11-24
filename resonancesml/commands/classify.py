@@ -1,22 +1,22 @@
 from sklearn.neighbors import KNeighborsClassifier
-from resonancesml.loader import get_asteroids
-from resonancesml.loader import get_learn_set
 from sklearn.tree import DecisionTreeClassifier
 from sklearn.ensemble import GradientBoostingClassifier
+from resonancesml.loader import get_asteroids
+from resonancesml.loader import get_learn_set
 from typing import Dict
 from typing import List
 import numpy as np
 from .shortcuts import perf_measure
 from resonancesml.shortcuts import get_target_vector
 from resonancesml.shortcuts import get_feuture_matrix
+from resonancesml.shortcuts import ClfPreset
+from resonancesml.shortcuts import get_classifier
 from sklearn.metrics import precision_score
 from sklearn.metrics import recall_score
 from sklearn.metrics import accuracy_score
 from texttable import Texttable
 from sklearn.base import ClassifierMixin
 from resonancesml.reader import CatalogReader
-from resonancesml.knezevic import knezevic_metric
-
 
 class ClassifyResult:
     def __init__(self, Y_pred, Y_test):
@@ -127,17 +127,8 @@ def _classify_all(datasets: _DataSets, parameters: CatalogReader,
     return result
 
 
-def _build_clf_kwargs(metric: str) -> dict:
-    if metric == 'euclidean':
-        return {'p': 2}
-    elif metric == 'knezevic':
-        return {'metric': knezevic_metric}
-    else:
-        raise Exception('wrong metric')
-
-
 def test_classifier(X_train: np.ndarray, X_test: np.ndarray, Y_train: np.ndarray,
-                    Y_test: np.ndarray, indices: List[int], metric: str):
+                    Y_test: np.ndarray, indices: List[int], clf_preset: ClfPreset):
     """
     :param X_train: feature 2d matrix for learning.
     :param X_test: feature 2d matrix with testing.
@@ -145,15 +136,14 @@ def test_classifier(X_train: np.ndarray, X_test: np.ndarray, Y_train: np.ndarray
     :param Y_test: response vector for testing.
     :param indices: indices of columns selected from catalog for building data.
     They are need for report.
-    :param metric: metric used by KNN classifier.
+    :param clf_preset: data pointing on preset in configuration.
 
     Trains classifier and test it. After testing show results divided on basis
     of general metrics (precision, recall, accuracy). Also shows numbers of
     classified objects separated on true positive (TP), false positive (FP),
     true negative (TN), false negative (FN).
     """
-    clf = KNeighborsClassifier(weights='distance', n_jobs=1, algorithm='ball_tree',
-                               **_build_clf_kwargs(metric))
+    clf = get_classifier(clf_preset)
     res = _classify(clf, X_train, Y_train, X_test, Y_test)
     result = [res.precision, res.recall, res.accuracy, res.TP, res.FP, res.TN, res.FN]
     table = _build_table()
@@ -162,12 +152,11 @@ def test_classifier(X_train: np.ndarray, X_test: np.ndarray, Y_train: np.ndarray
 
 
 def get_librated_asteroids(X_train: np.ndarray, Y_train: np.ndarray, X_test: np.ndarray,
-                           metric: str) -> np.ndarray:
+                           clf_preset: ClfPreset) -> np.ndarray:
     """
     Returns classes of X_test matrix.
     """
-    clf = KNeighborsClassifier(weights='distance', n_jobs=4, algorithm='ball_tree',
-                               **_build_clf_kwargs(metric))
+    clf = get_classifier(clf_preset)
     clf.fit(X_train, Y_train)
     return clf.predict(X_test)
 
