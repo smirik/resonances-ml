@@ -73,6 +73,9 @@ class _ParamBridge:
     def __getitem__(self, key: str):
         return getattr(self, key, self._params[key])
 
+    def dump(self) -> str:
+        return yaml.dump(self._params)
+
 
 _config_path = None
 _params = None

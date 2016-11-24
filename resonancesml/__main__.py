@@ -19,6 +19,15 @@ class ClassifierPreset(click.ParamType):
         return vals[0], int(vals[1])
 
 
+def _unite_decorators(*decorators):
+    def deco(decorated_function):
+        for dec in reversed(decorators):
+            decorated_function = dec(decorated_function)
+        return decorated_function
+
+    return deco
+
+
 def _learn_options():
     default_libration_list = opjoin(PROJECT_DIR, 'input', 'librations',
                                     'first50_librated_asteroids_4_-2_-1')
@@ -69,7 +78,7 @@ def _get_classifiers():
 
 
 @main.command()
-@_learn_options
+@_learn_options()
 def learn(librate_list: str, catalog: str):
     from resonancesml.commands.learn import MethodComparer
     from resonancesml.reader import build_reader
@@ -104,12 +113,12 @@ def _get_injection_and_catalog(catalog: str, resonant_axis: float,
 
 
 @main.command('clear-influence-trainset')
-@_influence_options
+@_influence_options()
 @click.option('--resonant-axis', '-x', type=float)
 @click.option('--axis-swing', '-s', type=float)
 @click.option('--axis-index', '-i', type=int)
 def clear_influence_trainset(librate_list: str, catalog: str, clf: ClfPreset, fields: tuple,
-                           resonant_axis: float, axis_swing: float, axis_index: int):
+                             resonant_axis: float, axis_swing: float, axis_index: int):
     from resonancesml.reader import build_reader_for_influence
     injection, _catalog = _get_injection_and_catalog(catalog, resonant_axis, axis_swing, axis_index)
     parameters = build_reader_for_influence(_catalog, injection)
@@ -117,7 +126,7 @@ def clear_influence_trainset(librate_list: str, catalog: str, clf: ClfPreset, fi
 
 
 @main.command(name='clear-learn')
-@_learn_options
+@_learn_options()
 @click.option('--resonant-axis', '-x', type=float)
 @click.option('--axis-swing', '-s', type=float)
 @click.option('--axis-index', '-i', type=int)
@@ -135,7 +144,7 @@ def clear_learn(librate_list: str, catalog: str, fields: tuple,
 
 
 @main.command(name='classify-all')
-@_learn_tester
+@_learn_options()
 @click.option('--all-librated', '-a', type=click.Path(exists=True, resolve_path=True))
 @click.option('--clf', type=ClassifierPreset())
 @click.option('--report', type=bool, is_flag=True)
@@ -170,8 +179,8 @@ def clear_classify_all(all_librated: str, catalog: str, fields: tuple,
     _clear_classify_all(all_librated, parameters, train_length)
 
 
-@main.command(name='influence-fields')
-@_influence_options
+@main.command(name='influence-fields', help='Get influnce of fields for pointed classifier.')
+@_influence_options()
 def influence_fields(librate_list: str, catalog: str, clf: ClfPreset):
     from resonancesml.commands.learn import MethodComparer
     from resonancesml.reader import build_reader_for_influence
@@ -218,15 +227,6 @@ SYN_I = 4
 SYN_MEAN_MOTION = 5
 SYN_G = 6
 SYN_S = 7
-
-
-def _unite_decorators(*decorators):
-    def deco(decorated_function):
-        for dec in reversed(decorators):
-            decorated_function = dec(decorated_function)
-        return decorated_function
-
-    return deco
 
 
 def data_options(helps: Dict[str, str] = {}):
@@ -311,6 +311,12 @@ def get(train_length: int, data_length: None, matrix_path: str, librations_folde
         X_train, X_test, Y_train = builder.build(catalog_reader.indices_cases[0])
         classes = get_librated_asteroids(X_train, Y_train, X_test, clf)
         builder.save_librated_asteroids(classes, folder)
+
+
+@main.command('dump-config', help='Shows current configuration in yaml format.')
+def dump_config():
+    from resonancesml.settings import params
+    print(params().dump())
 
 
 if __name__ == '__main__':
