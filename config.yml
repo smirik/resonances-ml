@@ -36,6 +36,13 @@ classifiers:
   LR:
     - C: 0.00001
       penalty: l1
+  XGB:
+    - n_estimators: 100
+      max_depth: 2
+      n_thread: 1
+      gamma: 0.5
+      subsample: 0.1
+      colsample_bytree: 0.1
 
 influence:
   synthetic: [[2,3,4],[2,3,5],[2,4,5],[3,4,5],[2,5]]

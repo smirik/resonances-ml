@@ -13,6 +13,7 @@ from sklearn.base import ClassifierMixin
 from sklearn.neighbors import KNeighborsClassifier
 from sklearn.tree import DecisionTreeClassifier
 from sklearn.ensemble import GradientBoostingClassifier
+import xgboost as xgb
 
 ClfPreset = Tuple[str, int]
 
@@ -87,6 +88,8 @@ def get_classifier(by_preset: ClfPreset) -> ClassifierMixin:
         clf = DecisionTreeClassifier(**classifier_kwargs)
     elif name == 'LR':
         clf = LogisticRegression(**classifier_kwargs)
+    elif name == 'XGB':
+        clf = xgb.sklearn.XGBClassifier(**classifier_kwargs)
     else:
         raise Exception('Unsupported classifier')
     return clf

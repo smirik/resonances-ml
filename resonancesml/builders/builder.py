@@ -322,7 +322,9 @@ class TargetVectorBuilder:
             bar.update()
             axis = resonance[6]
 
-            feature_matrix = X[np.where(np.abs(X[:, self._axis_index] - axis) <= 0.01)]
+            mask = _get_mask(axis, X[:, self._axis_index])
+            feature_matrix = X[mask]
+
             if not feature_matrix.shape[0]:
                 continue
 
@@ -343,6 +345,20 @@ class TargetVectorBuilder:
 
         res = np.delete(res, 0, 0)
         sorted_res = res[res[:,0].argsort()]
-        np.savetxt(cache_filepath, sorted_res,
-                   fmt='%d %f %f %f %f %.18e %.18e %.18e %.18e %d %f %d %d %d %f %d')
+        #np.savetxt(cache_filepath, sorted_res,
+                   #fmt='%d %f %f %f %f %.18e %.18e %.18e %.18e %d %f %d %d %d %f %d')
         return sorted_res[:self._data_len]
+
+
+_cached_mask = {'axis': None, 'mask': None}
+
+
+def _get_mask(by_axis: float, vector: np.ndarray) -> np.ndarray:
+    global _cached_mask
+    if _cached_mask['axis'] != by_axis:
+        axis_bottom = by_axis - 0.01
+        axis_top = by_axis + 0.01
+        mask = np.where((vector >= axis_bottom) & (vector <= axis_top))
+        _cached_mask['mask'] = mask
+        _cached_mask['axis'] = by_axis
+    return _cached_mask['mask']
