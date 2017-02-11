@@ -107,3 +107,13 @@ def build_reader_for_influence(catalog: Catalog, injection: ADatasetInjection) -
         indeces_cases = params()['influence']['synthetic']
         return CatalogReader(indeces_cases, CAT_CATALOG_PATH, 8, "\.|,", 6, injection)
     raise CatalogException()
+
+
+def build_reader_for_grid(catalog: Catalog, injection: ADatasetInjection) -> CatalogReader:
+    if catalog == Catalog.syn:
+        indeces_cases = params()['grid_search']['fields']['synthetic']
+        return CatalogReader(indeces_cases, SYN_CATALOG_PATH, 10, '  ', 2, injection, 406253)
+    elif catalog == Catalog.cat:
+        indeces_cases = params()['grid_search']['fields']['synthetic']
+        return CatalogReader(indeces_cases, CAT_CATALOG_PATH, 8, "\.|,", 6, injection)
+    raise CatalogException()
