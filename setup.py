@@ -1,5 +1,7 @@
 from distutils.core import setup
+from distutils.core import Extension
 
+metric_module = Extension('metric', sources = ['metric.c'])
 setup(
     name='resonances-ml',
     version='',
@@ -20,4 +22,5 @@ setup(
         'imbalanced-learn==0.1.8',
         'PyYAML==3.11'
     ],
+    ext_modules = [metric_module]
 )
