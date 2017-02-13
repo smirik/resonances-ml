@@ -8,7 +8,7 @@ from typing import List
 import numpy as np
 from .shortcuts import perf_measure
 from resonancesml.shortcuts import get_target_vector
-from resonancesml.shortcuts import get_feuture_matrix
+from resonancesml.shortcuts import get_feature_matrix
 from resonancesml.shortcuts import ClfPreset
 from resonancesml.shortcuts import get_classifier
 from sklearn.metrics import precision_score
@@ -97,10 +97,10 @@ def _classify_all(datasets: _DataSets, parameters: CatalogReader,
 
     data = []
     for indices in parameters.indices_cases:
-        X = get_feuture_matrix(datasets.learn_feature_set, False, indices)
+        X = get_feature_matrix(datasets.learn_feature_set, False, indices)
         Y = get_target_vector(datasets.librated_asteroids, datasets.learn_feature_set.astype(int))
 
-        X_test = get_feuture_matrix(datasets.test_feature_set, False, indices)
+        X_test = get_feature_matrix(datasets.test_feature_set, False, indices)
         Y_test = get_target_vector(datasets.all_librated_asteroids,
                                    datasets.test_feature_set.astype(int))
 

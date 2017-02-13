@@ -64,7 +64,7 @@ Execute command `python -m resonancesml dump-config` to see default configuratio
 
 ### Test classifier
 
-Command: `python -m resonancesml test-clf -n 2000 -c syn -e '2' --clf='KNN 0'`.
+Command: `python -m resonancesml test-clf -n 2000 -c syn -e '2' --clf='KNN 0' -r`.
 Description of the options [above](#getting-resonant-asteroids)
 
 More details are available by command `python -m resonancesml test-clf --help`

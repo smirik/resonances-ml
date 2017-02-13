@@ -1,4 +1,6 @@
 import sys
+import re
+import itertools
 import numpy as np
 from typing import List
 from sklearn.preprocessing import StandardScaler
@@ -13,9 +15,13 @@ from sklearn.base import ClassifierMixin
 from sklearn.neighbors import KNeighborsClassifier
 from sklearn.tree import DecisionTreeClassifier
 from sklearn.ensemble import GradientBoostingClassifier
+from resonancesml.reader import CatalogReader
+import xgboost as xgb
 
 ClfPreset = Tuple[str, int]
 
+
+WARN = '\033[93m'
 FAIL = '\033[91m'
 ENDC = '\033[0m'
 OK = '\033[92m'
@@ -56,7 +62,7 @@ def get_target_vector(from_asteroids: np.ndarray, by_features: np.ndarray) -> np
     return np.array(target_vector, dtype=np.float64)
 
 
-def get_feuture_matrix(from_features: np.ndarray, scale: bool, indices: List[int]) -> np.ndarray:
+def get_feature_matrix(from_features: np.ndarray, scale: bool, indices: List[int]) -> np.ndarray:
     res = np.array(from_features[: ,indices], dtype=np.float64)  # type: np.ndarray
     if scale:
         scaler = StandardScaler()
@@ -66,6 +72,22 @@ def get_feuture_matrix(from_features: np.ndarray, scale: bool, indices: List[int
 
 def norm(vector: np.ndarray) -> np.ndarray:
     return (vector - np.min(vector))/(np.max(vector) - np.min(vector))
+
+
+_classifier_classes = {
+    'KNN': KNeighborsClassifier,
+    'GB': GradientBoostingClassifier,
+    'DT': DecisionTreeClassifier,
+    'LR': LogisticRegression,
+    'XGB': xgb.sklearn.XGBClassifier,
+}
+
+
+def get_classifier_class(by_name) -> type:
+    try:
+        return _classifier_classes[by_name]
+    except KeyError:
+        raise Exception('Unsupported classifier')
 
 
 def get_classifier(by_preset: ClfPreset) -> ClassifierMixin:
@@ -87,7 +109,39 @@ def get_classifier(by_preset: ClfPreset) -> ClassifierMixin:
         clf = DecisionTreeClassifier(**classifier_kwargs)
     elif name == 'LR':
         clf = LogisticRegression(**classifier_kwargs)
+    elif name == 'XGB':
+        clf = xgb.sklearn.XGBClassifier(**classifier_kwargs)
     else:
         raise Exception('Unsupported classifier')
     return clf
 
+
+def get_headers(catalog_reader: CatalogReader, by_indices: List[int]) -> List[str]:
+    """
+    Returns headers from catalog of catalog_reader by indices.
+    """
+    headers = []
+    header_line_number = catalog_reader.skiprows - 1
+    with open(catalog_reader.catalog_path) as f:
+        for i, line in enumerate(f):
+            if i == header_line_number:
+                replace_regex = re.compile("\([^\(]*\)")
+                line = replace_regex.sub(' ', line)
+                delimiter_regex = re.compile(catalog_reader.delimiter)
+                headers = [x.strip() for x in delimiter_regex.split(line) if x]
+                if catalog_reader.injection:
+                    headers += catalog_reader.injection.headers
+            elif i > header_line_number:
+                break
+    res = []
+    for index in by_indices:
+        res.append(headers[index])
+    return res
+
+
+def getall_combinations(stuff):
+    result = []
+    for L in range(0, len(stuff)+1):
+        for subset in itertools.combinations(stuff, L):
+            result.append(subset)
+    return result

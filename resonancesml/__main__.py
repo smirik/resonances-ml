@@ -28,12 +28,14 @@ def _unite_decorators(*decorators):
     return deco
 
 
+DEFAULT_LIBRATION_LIST = opjoin(PROJECT_DIR, 'input', 'librations',
+                                'first50_librated_asteroids_4_-2_-1')
+
+
 def _learn_options():
-    default_libration_list = opjoin(PROJECT_DIR, 'input', 'librations',
-                                    'first50_librated_asteroids_4_-2_-1')
     return _unite_decorators(
         click.option('--librate-list', '-l', type=click.Path(exists=True, resolve_path=True),
-                      default=default_libration_list),
+                      default=DEFAULT_LIBRATION_LIST, show_default=True),
         click.option('--catalog', '-c', type=click.Choice([x.name for x in Catalog])),
     )
 
@@ -57,6 +59,7 @@ def _get_classifiers():
     from sklearn.tree import DecisionTreeClassifier
     from sklearn.ensemble import GradientBoostingClassifier
     from sklearn.linear_model import LogisticRegression
+    from xgboost.sklearn import XGBClassifier
 
     keys = [
         'K neighbors',
@@ -64,6 +67,7 @@ def _get_classifiers():
         'Gradient boosting (50 trees)',
         'Decision tree',
         'Logistic regression',
+        'XGBClassifier',
     ]
 
     classifiers = {
@@ -72,7 +76,8 @@ def _get_classifiers():
             #n_estimators=7, learning_rate=0.6, min_samples_split=33240),
         'Gradient boosting (50 trees)': GradientBoostingClassifier(n_estimators=50, learning_rate=0.85),
         'Decision tree': DecisionTreeClassifier(random_state=241),
-        'Logistic regression': LogisticRegression(C=0.00001, penalty='l1', n_jobs=4)
+        'Logistic regression': LogisticRegression(C=0.00001, penalty='l1', n_jobs=4),
+        'XGBClassifier': XGBClassifier(n_estimators=100, max_depth=2, nthread=4, gamma=2, subsample=0.2, colsample_bytree=0.5, learning_rate=2)
     }
     return classifiers, keys
 
@@ -121,8 +126,8 @@ def clear_influence_trainset(librate_list: str, catalog: str, clf: ClfPreset, fi
                              resonant_axis: float, axis_swing: float, axis_index: int):
     from resonancesml.reader import build_reader_for_influence
     injection, _catalog = _get_injection_and_catalog(catalog, resonant_axis, axis_swing, axis_index)
-    parameters = build_reader_for_influence(_catalog, injection)
-    _learn_tester(librate_list, clf, parameters)
+    catalog_reader = build_reader_for_influence(_catalog, injection)
+    _learn_tester(librate_list, clf, catalog_reader)
 
 
 @main.command(name='clear-learn')
@@ -185,9 +190,9 @@ def influence_fields(librate_list: str, catalog: str, clf: ClfPreset):
     from resonancesml.commands.learn import MethodComparer
     from resonancesml.reader import build_reader_for_influence
 
-    parameters = build_reader_for_influence(Catalog(catalog), None)
+    catalog_reader = build_reader_for_influence(Catalog(catalog), None)
     classifiers = { clf[0]: get_classifier(clf) }
-    tester = MethodComparer(librate_list, parameters)
+    tester = MethodComparer(librate_list, catalog_reader)
     tester.set_methods(classifiers, [clf[0]])
     tester.learn()
 
@@ -228,17 +233,20 @@ SYN_MEAN_MOTION = 5
 SYN_G = 6
 SYN_S = 7
 
+FILTER_NOISE_HELP = ('Removes non-resonance asteroids have axis lesser ' +
+                     'than resonance asteroids from learning set.')
 
 def data_options(helps: Dict[str, str] = {}):
     return _unite_decorators(
         click.option('--train-length', '-n', type=int, help=helps.get('tl', '')),
         click.option('--data-length', '-l', type=int,
                      help='Length of dataset that will be read from catalog.'),
-        click.option('--filter-noise', '-i', type=bool, is_flag=True),
+        click.option('--filter-noise', '-i', type=bool, is_flag=True, help=FILTER_NOISE_HELP),
         click.option('--add-art-objects', '-a', type=bool, is_flag=True,
                      help='Adds synthetic objects based on SMOTE.'),
         click.option('--matrix-path', '-p', type=click.Path(resolve_path=True, exists=True),
-                     default=opjoin(PROJECT_DIR, 'input', 'resonance_tables', 'matrix-js.res')),
+                     default=opjoin(PROJECT_DIR, 'input', 'resonance_tables', 'matrix-js.res'),
+                     show_default=True),
         click.option('--librations-folder', '-f', type=click.Path(resolve_path=True, exists=True),
                      multiple=True, default=[opjoin(PROJECT_DIR, 'input', 'librations', '4J-2S-1')]),
         click.option('--catalog', '-c', type=click.Choice([x.name for x in Catalog]), default='syn'),
@@ -263,9 +271,12 @@ def plot(train_length: int, data_length: None, matrix_path: str, librations_fold
         plot(X_train, Y_train, folder.split('/')[-1])
 
 
+TEST_CLF_HELP = ('Classifier preset. Example: "KNN 0". ' +
+                 'Presets are available in config, section "classifiers". ' +
+                 'Make python -m resonancesml dump_config to see default configuration.')
 @main.command('test-clf', help='Tests pointed classifer for common metrics.')
 @data_options()
-@click.option('--clf', type=ClassifierPreset())
+@click.option('--clf', type=ClassifierPreset(), help=TEST_CLF_HELP)
 @click.option('--fields', '-e', type=lambda x: [int(y) for y in x.split()])
 def test_clf(train_length: int, data_length: None, matrix_path: str, librations_folder: tuple,
              remove_cache: bool, catalog: str, verbose: int, filter_noise: bool,
@@ -317,6 +328,19 @@ def get(train_length: int, data_length: None, matrix_path: str, librations_folde
 def dump_config():
     from resonancesml.settings import params
     print(params().dump())
+
+
+@main.command()
+@click.option('--clf', type=str)
+@click.option('--librate-list', '-l', 'librate_list_paths',
+              type=click.Path(exists=True, resolve_path=True),
+              default=(DEFAULT_LIBRATION_LIST,), show_default=True, multiple=True,
+              help='Path to file with librated asteroids.')
+@click.option('--catalog', '-c', type=click.Choice([x.name for x in Catalog]),
+              help="Path to catalog of synthetic elements.")
+def get_optimal_parameters(clf: str, librate_list_paths: tuple, catalog: str):
+    from resonancesml.commands.get_optimal_parameters import get_optimal_parameters
+    get_optimal_parameters(clf, librate_list_paths, catalog)
 
 
 if __name__ == '__main__':

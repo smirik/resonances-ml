@@ -7,6 +7,8 @@ from os import remove
 from os.path import exists as opexist
 from os.path import join as opjoin
 from resonancesml.shortcuts import get_target_vector
+from resonancesml.shortcuts import WARN
+from resonancesml.shortcuts import ENDC
 from imblearn.over_sampling import SMOTE
 from resonancesml.shortcuts import ProgressBar
 import numpy as np
@@ -62,6 +64,10 @@ class DatasetBuilder(object):
     def _divide(self, dataset: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
         """Returns learning dataset and test dataset."""
         assert self._train_length
+        if self._train_length > dataset.shape[0]:
+            print(WARN, 'Pointed length (%s) for learning set by key "-n" ' % self._train_length +
+                  'is greater than length of whole dataset (%s)' % dataset.shape[0],
+                  ENDC, sep='')
         learn_feature_set = dataset[:self._train_length]  # type: np.ndarray
         test_feature_set = dataset[self._train_length:]  # type: np.ndarray
         return learn_feature_set, test_feature_set
@@ -322,7 +328,9 @@ class TargetVectorBuilder:
             bar.update()
             axis = resonance[6]
 
-            feature_matrix = X[np.where(np.abs(X[:, self._axis_index] - axis) <= 0.01)]
+            mask = _get_mask(axis, X[:, self._axis_index])
+            feature_matrix = X[mask]
+
             if not feature_matrix.shape[0]:
                 continue
 
@@ -343,6 +351,20 @@ class TargetVectorBuilder:
 
         res = np.delete(res, 0, 0)
         sorted_res = res[res[:,0].argsort()]
-        np.savetxt(cache_filepath, sorted_res,
-                   fmt='%d %f %f %f %f %.18e %.18e %.18e %.18e %d %f %d %d %d %f %d')
+        #np.savetxt(cache_filepath, sorted_res,
+                   #fmt='%d %f %f %f %f %.18e %.18e %.18e %.18e %d %f %d %d %d %f %d')
         return sorted_res[:self._data_len]
+
+
+_cached_mask = {'axis': None, 'mask': None}
+
+
+def _get_mask(by_axis: float, vector: np.ndarray) -> np.ndarray:
+    global _cached_mask
+    if _cached_mask['axis'] != by_axis:
+        axis_bottom = by_axis - 0.01
+        axis_top = by_axis + 0.01
+        mask = np.where((vector >= axis_bottom) & (vector <= axis_top))
+        _cached_mask['mask'] = mask
+        _cached_mask['axis'] = by_axis
+    return _cached_mask['mask']
