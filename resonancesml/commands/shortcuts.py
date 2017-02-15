@@ -51,3 +51,15 @@ def classify(clf: ClassifierMixin, kf: KFold, X: np.ndarray, Y: np.ndarray)\
             np.sum(TPs), np.sum(FPs), np.sum(TNs), np.sum(FNs))
 
 
+def classify_as_dict(clf: ClassifierMixin, kf: KFold, X: np.ndarray, Y: np.ndarray) -> dict:
+    precision, recall, accuracy, TP, FP, TN, FN = classify(clf, kf, X, Y)
+    scores = {
+        'precision': precision,
+        'recall': recall,
+        'accuracy': accuracy,
+        'TP': TP,
+        'FP': FP,
+        'TN': TN,
+        'FN': FN,
+    }
+    return scores

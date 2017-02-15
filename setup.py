@@ -18,6 +18,7 @@ setup(
         'pandas==0.18.1',
         'matplotlib==1.5.1',
         'imbalanced-learn==0.1.8',
-        'PyYAML==3.11'
+        'PyYAML==3.11',
+        'xgboost==0.6a2',
     ],
 )

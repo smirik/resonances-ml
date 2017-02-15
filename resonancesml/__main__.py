@@ -343,5 +343,18 @@ def get_optimal_parameters(clf: str, librate_list_paths: tuple, catalog: str):
     get_optimal_parameters(clf, librate_list_paths, catalog)
 
 
+@main.command()
+@click.option('--clf', type=ClassifierPreset())
+@click.option('--librate-list', '-l', 'librate_list_paths',
+              type=click.Path(exists=True, resolve_path=True),
+              default=(DEFAULT_LIBRATION_LIST,), show_default=True,
+              help='Path to file with librated asteroids.')
+@click.option('--catalog', '-c', type=click.Choice([x.name for x in Catalog]),
+              help="Path to catalog of synthetic elements.")
+def get_optimal_coeffs(clf: ClfPreset, librate_list_paths: str, catalog: str):
+    from resonancesml.commands.get_optimal_coeffs import get_optimal_coeffs
+    get_optimal_coeffs(clf, librate_list_paths, catalog, [2,3,4,5])
+
+
 if __name__ == '__main__':
     main()

@@ -90,7 +90,7 @@ def get_classifier_class(by_name) -> type:
         raise Exception('Unsupported classifier')
 
 
-def get_classifier(by_preset: ClfPreset) -> ClassifierMixin:
+def get_classifier_with_kwargs(by_preset: ClfPreset) -> ClassifierMixin:
     name = by_preset[0]
     preset_number = by_preset[1]
     classifier_kwargs = params()['classifiers'][name][preset_number]  # type: dict
@@ -113,6 +113,11 @@ def get_classifier(by_preset: ClfPreset) -> ClassifierMixin:
         clf = xgb.sklearn.XGBClassifier(**classifier_kwargs)
     else:
         raise Exception('Unsupported classifier')
+    return clf, classifier_kwargs
+
+
+def get_classifier(by_preset: ClfPreset) -> ClassifierMixin:
+    clf, _ = get_classifier_with_kwargs(by_preset)
     return clf
 
 
