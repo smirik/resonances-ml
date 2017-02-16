@@ -10,6 +10,14 @@ from resonancesml.shortcuts import ClfPreset
 from resonancesml.shortcuts import get_classifier
 
 
+_CATALOG_HELP = (
+    'Type of catalog: ' +
+    '\'syn\' is catalog of synthetic elements, ' +
+    '\'cat\' is catalog of Kepler elements, ' +
+    '\'pro\' is catalog of property elements, '
+)
+
+
 class ClassifierPreset(click.ParamType):
     name = 'classifier preset'
 
@@ -36,7 +44,8 @@ def _learn_options():
     return _unite_decorators(
         click.option('--librate-list', '-l', type=click.Path(exists=True, resolve_path=True),
                       default=DEFAULT_LIBRATION_LIST, show_default=True),
-        click.option('--catalog', '-c', type=click.Choice([x.name for x in Catalog])),
+        click.option('--catalog', '-c', type=click.Choice([x.name for x in Catalog]),
+                     help=_CATALOG_HELP, show_default=True),
     )
 
 
@@ -254,8 +263,10 @@ def data_options(helps: Dict[str, str] = {}):
                      default=opjoin(PROJECT_DIR, 'input', 'resonance_tables', 'matrix-js.res'),
                      show_default=True),
         click.option('--librations-folder', '-f', type=click.Path(resolve_path=True, exists=True),
-                     multiple=True, default=[opjoin(PROJECT_DIR, 'input', 'librations', '4J-2S-1')]),
-        click.option('--catalog', '-c', type=click.Choice([x.name for x in Catalog]), default='syn'),
+                     multiple=True, default=[opjoin(PROJECT_DIR, 'input', 'librations', '4J-2S-1')],
+                    show_default=True),
+        click.option('--catalog', '-c', type=click.Choice([x.name for x in Catalog]), default='syn',
+                    help=_CATALOG_HELP, show_default=True),
         click.option('--remove-cache', '-r', type=bool, is_flag=True,
                      help='This commands build cache in /tmp/cache.txt. Up this flag to delete cache.'),
         click.option('--verbose', '-v', count=True),
@@ -305,11 +316,12 @@ def test_clf(train_length: int, data_length: None, matrix_path: str, librations_
 
 @main.command(help='Creates file ./resonanceml-out/<name-of-folder> with asteroids that librate.')
 @data_options({
-    'tl': ('Length of training set. If not pointed, application gets asteroids' +
+    'tl': ('Length of training set. If not pointed, application gets asteroids ' +
            'from 1 to number of last librated asteroid.')
 })
-@click.option('--clf', type=ClassifierPreset())
-@click.option('--fields', '-e', type=lambda x: [int(y) for y in x.split()])
+@click.option('--clf', type=ClassifierPreset(), help=TEST_CLF_HELP)
+@click.option('--fields', '-e', type=lambda x: [int(y) for y in x.split()],
+              help='Numbers of columns used for features. Example: \'2 3 4\'')
 def get(train_length: int, data_length: None, matrix_path: str, librations_folder: tuple,
         remove_cache: bool, catalog: str, verbose: int, filter_noise: bool,
         add_art_objects: bool, fields: List[int], clf: ClfPreset):
