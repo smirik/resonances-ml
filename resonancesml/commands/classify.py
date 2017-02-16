@@ -46,7 +46,7 @@ class _DataSets:
 def _get_datasets(librate_list: str, all_librated: str, catalog_reader: CatalogReader,
                   slice_len: int = None) -> _DataSets:
     """
-    Gets feuture dataset from catalog by pointed catalog reader argument, loads
+    Gets feature dataset from catalog by pointed catalog reader argument, loads
     vector of librated asteroids and separate it on train and test datasets.
 
     :param librate_list: path to file contains vector of asteroid's numbers that librates.

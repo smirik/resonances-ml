@@ -106,10 +106,7 @@ class _CoeffitientsSearcher(ASearcher):
         return coeffs_vs_metrics
 
 
-HEADERS = ['a', 'e', 'sin I', 'n']
-
-
-REPORT_COLS = ['ka', 'ke', 'ki', 'kn', 'TP', 'TN', 'FP', 'FN', 'accuracy', 'precision', 'recall']
+_REPORT_COLS = ['ka', 'ke', 'ki', 'kn', 'TP', 'TN', 'FP', 'FN', 'accuracy', 'precision', 'recall']
 
 
 def get_optimal_coeffs(clf_preset: ClfPreset, librate_list: str,
@@ -133,4 +130,4 @@ def get_optimal_coeffs(clf_preset: ClfPreset, librate_list: str,
     features, headers = learning_set_builder.build_features_case()
     filename = '%s_coeff_search.csv' % clf_preset[0]
     data = searcher.fit(features, targets)
-    view_for_total_comparing(data, filename, [], REPORT_COLS)
+    view_for_total_comparing(data, filename, [], _REPORT_COLS)

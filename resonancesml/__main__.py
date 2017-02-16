@@ -77,7 +77,8 @@ def _get_classifiers():
         'Gradient boosting (50 trees)': GradientBoostingClassifier(n_estimators=50, learning_rate=0.85),
         'Decision tree': DecisionTreeClassifier(random_state=241),
         'Logistic regression': LogisticRegression(C=0.00001, penalty='l1', n_jobs=4),
-        'XGBClassifier': XGBClassifier(n_estimators=100, max_depth=2, nthread=4, gamma=2, subsample=0.2, colsample_bytree=0.5, learning_rate=2)
+        'XGBClassifier': XGBClassifier(n_estimators=100, max_depth=2, nthread=4, gamma=2,
+                                       subsample=0.2, colsample_bytree=0.5, learning_rate=2)
     }
     return classifiers, keys
 
@@ -148,7 +149,12 @@ def clear_learn(librate_list: str, catalog: str, fields: tuple,
     tester.learn()
 
 
-@main.command(name='classify-all')
+
+_CLASSIFY_ALL = ('Example: classify-all -l first200_librated_asteroids_4_-2_-1.csv ' +
+                 '-a sorted_all-librated.txt -c syn --clf=KNN --report 2 3 4 5')
+
+
+@main.command(name='classify-all', help=_CLASSIFY_ALL)
 @_learn_options()
 @click.option('--all-librated', '-a', type=click.Path(exists=True, resolve_path=True))
 @click.option('--clf', type=ClassifierPreset())

@@ -24,8 +24,10 @@ def get_learn_set(from_catalog_features: np.ndarray, to_asteroid_number: str) ->
               (FAIL, to_asteroid_number, ENDC))
 
         asteroids_numbers = from_catalog_features[:, 0].astype(int)
-        less_suggested_asteroid = asteroids_numbers[np.where(asteroids_numbers < int(to_asteroid_number))][-1]
-        greater_suggested_asteroid = asteroids_numbers[np.where(asteroids_numbers > int(to_asteroid_number))][0]
+        less_suggested_asteroid = asteroids_numbers[np.where(
+            asteroids_numbers < int(to_asteroid_number))][-1]
+        greater_suggested_asteroid = asteroids_numbers[np.where(
+            asteroids_numbers > int(to_asteroid_number))][0]
         print('Try to use -n %i or -n %i' % (less_suggested_asteroid, greater_suggested_asteroid))
         exit(-1)
     slice_len = data[0][0] + 1
