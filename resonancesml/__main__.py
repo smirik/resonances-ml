@@ -18,6 +18,10 @@ _CATALOG_HELP = (
 )
 
 
+_LEARN_HELP = ('Compares several classifier presets. ' +
+               'Scores of classificataion are get using cross validation.')
+
+
 class ClassifierPreset(click.ParamType):
     name = 'classifier preset'
 
@@ -64,35 +68,23 @@ def main(config):
 
 
 def _get_classifiers():
-    from sklearn.neighbors import KNeighborsClassifier
-    from sklearn.tree import DecisionTreeClassifier
-    from sklearn.ensemble import GradientBoostingClassifier
-    from sklearn.linear_model import LogisticRegression
-    from xgboost.sklearn import XGBClassifier
+    from resonancesml.shortcuts import get_classifier_class
+    from resonancesml.settings import params
 
-    keys = [
-        'K neighbors',
-        'Gradient boosting (10 trees)',
-        'Gradient boosting (50 trees)',
-        'Decision tree',
-        'Logistic regression',
-        'XGBClassifier',
-    ]
+    clfs_params = params()['classifiers_for_comparing']  # type: List[dict]
+    keys = []
+    classifiers = {}
+    for item in clfs_params:
+        report_name = item['report_name']
+        clf_name = item['preset']['name']
+        clf_params = item['preset']['params']
+        keys.append(report_name)
+        classifiers[report_name] = get_classifier_class(clf_name)(**clf_params)
 
-    classifiers = {
-        'K neighbors': KNeighborsClassifier(weights='distance', p=1, n_jobs=4),
-        'Gradient boosting (10 trees)': GradientBoostingClassifier(n_estimators=10, learning_rate=0.85),
-            #n_estimators=7, learning_rate=0.6, min_samples_split=33240),
-        'Gradient boosting (50 trees)': GradientBoostingClassifier(n_estimators=50, learning_rate=0.85),
-        'Decision tree': DecisionTreeClassifier(random_state=241),
-        'Logistic regression': LogisticRegression(C=0.00001, penalty='l1', n_jobs=4),
-        'XGBClassifier': XGBClassifier(n_estimators=100, max_depth=2, nthread=4, gamma=2,
-                                       subsample=0.2, colsample_bytree=0.5, learning_rate=2)
-    }
     return classifiers, keys
 
 
-@main.command()
+@main.command(help=_LEARN_HELP)
 @_learn_options()
 def learn(librate_list: str, catalog: str):
     from resonancesml.commands.learn import MethodComparer
