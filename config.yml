@@ -31,6 +31,7 @@ classifiers_for_comparing:
 
 classifiers:
   KNN:
+    - {weights: 'distance', p: 1, n_jobs: 4}
     - metric: euclidean
     - metric: knezevic
     - weights: distance

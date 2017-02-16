@@ -17,9 +17,15 @@ _CATALOG_HELP = (
     '\'pro\' is catalog of property elements, '
 )
 
+_TEST_CLF_HELP = ('Classifier preset. Example: "KNN 0". ' +
+                 'Presets are available in config, section "classifiers". ' +
+                 'Make python -m resonancesml dump_config to see default configuration.')
 
-_LEARN_HELP = ('Compares several classifier presets. ' +
-               'Scores of classificataion are get using cross validation.')
+
+_LEARN_HELP = ('Compares several classifier presets ' +
+               'from section "classifiers_for_comparing" in config ' +
+               '(see `python -m resonancesml dump-config`). ' +
+               'Scores of classificataion are got using cross validation.')
 
 
 class ClassifierPreset(click.ParamType):
@@ -151,17 +157,24 @@ def clear_learn(librate_list: str, catalog: str, fields: tuple,
 
 
 
-_CLASSIFY_ALL = ('Example: classify-all -l first200_librated_asteroids_4_-2_-1.csv ' +
-                 '-a sorted_all-librated.txt -c syn --clf=KNN --report 2 3 4 5')
+_CLASSIFY_ALL = (
+    'Test classifier by all asteroids from catalog using pointed classifier preset. ' +
+    'Classifier will be fitted on asteroids from file pointed by `--librated-list`. ' +
+    'Scores of classificataion are got comparing predictions and real values from ' +
+    'file pointed by option `--all-librated`. ' +
+    'Example: classify-all -l first200_librated_asteroids_4_-2_-1.csv ' +
+    '-a sorted_all-librated.txt -c syn --clf="KNN 0" 2 3 4 5.'
+)
 
 
 @main.command(name='classify-all', help=_CLASSIFY_ALL)
 @_learn_options()
-@click.option('--all-librated', '-a', type=click.Path(exists=True, resolve_path=True))
-@click.option('--clf', type=ClassifierPreset())
-@click.option('--report', type=bool, is_flag=True)
+@click.option('--all-librated', '-a', type=click.Path(exists=True, resolve_path=True),
+              help='File with librated asteroids used for checking.')
+@click.option('--clf', type=ClassifierPreset(), help=_TEST_CLF_HELP)
 @click.argument('fields', nargs=-1)
-def classify_all(librate_list: str, all_librated: str, catalog: str, fields: tuple, clf: str, report: str):
+def classify_all(librate_list: str, all_librated: str, catalog: str,
+                 fields: tuple, clf: str):
     from resonancesml.commands.classify import classify_all as _classify_all
     from resonancesml.reader import build_reader
     from resonancesml.reader import get_injection
@@ -280,12 +293,9 @@ def plot(train_length: int, data_length: None, matrix_path: str, librations_fold
         plot(X_train, Y_train, folder.split('/')[-1])
 
 
-TEST_CLF_HELP = ('Classifier preset. Example: "KNN 0". ' +
-                 'Presets are available in config, section "classifiers". ' +
-                 'Make python -m resonancesml dump_config to see default configuration.')
 @main.command('test-clf', help='Tests pointed classifer for common metrics.')
 @data_options()
-@click.option('--clf', type=ClassifierPreset(), help=TEST_CLF_HELP)
+@click.option('--clf', type=ClassifierPreset(), help=_TEST_CLF_HELP)
 @click.option('--fields', '-e', type=lambda x: [int(y) for y in x.split()])
 def test_clf(train_length: int, data_length: None, matrix_path: str, librations_folder: tuple,
              remove_cache: bool, catalog: str, verbose: int, filter_noise: bool,
@@ -311,7 +321,7 @@ def test_clf(train_length: int, data_length: None, matrix_path: str, librations_
     'tl': ('Length of training set. If not pointed, application gets asteroids ' +
            'from 1 to number of last librated asteroid.')
 })
-@click.option('--clf', type=ClassifierPreset(), help=TEST_CLF_HELP)
+@click.option('--clf', type=ClassifierPreset(), help=_TEST_CLF_HELP)
 @click.option('--fields', '-e', type=lambda x: [int(y) for y in x.split()],
               help='Numbers of columns used for features. Example: \'2 3 4\'')
 def get(train_length: int, data_length: None, matrix_path: str, librations_folder: tuple,
@@ -354,7 +364,7 @@ def get_optimal_parameters(clf: str, librate_list_paths: tuple, catalog: str):
 
 
 @main.command()
-@click.option('--clf', type=ClassifierPreset())
+@click.option('--clf', type=ClassifierPreset(), help=_TEST_CLF_HELP)
 @click.option('--librate-list', '-l', 'librate_list_paths',
               type=click.Path(exists=True, resolve_path=True),
               default=(DEFAULT_LIBRATION_LIST,), show_default=True,

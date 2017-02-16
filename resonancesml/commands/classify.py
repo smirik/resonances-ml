@@ -86,13 +86,10 @@ def _build_table() -> Texttable:
 
 
 def _classify_all(datasets: _DataSets, parameters: CatalogReader,
-                  clf_name: str = None) -> Dict[str, ClassifyResult]:
+                  clf_preset: str = None) -> Dict[str, ClassifyResult]:
+    name = clf_preset[0]
     table = _build_table()
-    classifiers = {
-        'DT': DecisionTreeClassifier(random_state=241),
-        'KNN': KNeighborsClassifier(weights='distance', p=1, n_jobs=4),
-        'GB': GradientBoostingClassifier(n_estimators=7, learning_rate=0.6, min_samples_split=150),
-    }
+    clf = get_classifier(clf_preset)
     result = {}
 
     data = []
@@ -104,15 +101,12 @@ def _classify_all(datasets: _DataSets, parameters: CatalogReader,
         Y_test = get_target_vector(datasets.all_librated_asteroids,
                                    datasets.test_feature_set.astype(int))
 
-        for name, clf in classifiers.items():
-            if clf_name and clf_name != name:
-                continue
-            res = _classify(clf, X, Y, X_test, Y_test)
-            data.append('%s;%s;%s;%s' % (name, ' '.join([str(x) for x in indices]), res.TP, res.FP))
-            data.append('%s;%s;%s;%s' % (name, ' '.join([str(x) for x in indices]), res.FN, res.TN))
-            table.add_row([name, ' '.join([str(x) for x in indices]), res.precision, res.recall,
-                           res.accuracy, res.TP, res.FP, res.TN, res.FN])
-            result[name + '-' + '-'.join([str(x) for x in indices])] = res
+        res = _classify(clf, X, Y, X_test, Y_test)
+        data.append('%s;%s;%s;%s' % (name, ' '.join([str(x) for x in indices]), res.TP, res.FP))
+        data.append('%s;%s;%s;%s' % (name, ' '.join([str(x) for x in indices]), res.FN, res.TN))
+        table.add_row([name, ' '.join([str(x) for x in indices]), res.precision, res.recall,
+                       res.accuracy, res.TP, res.FP, res.TN, res.FN])
+        result[name + '-' + '-'.join([str(x) for x in indices])] = res
 
     with open('data.csv', 'w') as fd:
         for item in data:
