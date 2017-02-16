@@ -10,6 +10,25 @@ librations_folders:
   "4J-2S-1": "4J-2S-1"
   "all-JS": libration_asteroids_JS
 
+classifiers_for_comparing:
+  - {report_name: 'K neighbors', preset: {name: KNN, params: {weights: 'distance', p: 1, n_jobs: 4}}}
+  - {report_name: 'Gradient boosting (10 trees)', preset: {name: GB, params: {n_estimators: 10, learning_rate: 0.85}}}
+  - {report_name: 'Gradient boosting (50 trees)', preset: {name: GB, params: {n_estimators: 50, learning_rate: 0.85}}}
+    #n_estimators: 7, learning_rate: 0.6, min_samples_split: 33240),
+  - {report_name: 'Decision tree', preset: {name: DT, params: {random_state: 241}}}
+  - {report_name: 'Logistic regression', preset: {name: LR, params: {C: 0.00001, penalty: 'l1', n_jobs: 4}}}
+  - report_name: 'XGBClassifier'
+    preset:
+      name: XGB
+      params:
+        n_estimators: 100
+        max_depth: 2
+        nthread: 4
+        gamma: 2
+        subsample: 0.2
+        colsample_bytree: 0.5
+        learning_rate: 2
+
 classifiers:
   KNN:
     - metric: euclidean
