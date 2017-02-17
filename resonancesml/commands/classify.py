@@ -7,6 +7,7 @@ from typing import Callable
 from typing import Any
 import numpy as np
 from .shortcuts import perf_measure
+from resonancesml.shortcuts import OK, ENDC
 from resonancesml.shortcuts import get_target_vector
 from resonancesml.shortcuts import get_feature_matrix
 from resonancesml.shortcuts import ClfPreset
@@ -75,7 +76,7 @@ class _DataSets:
 
 
 def _get_datasets(librate_list: str, all_librated: str, catalog_reader: CatalogReader,
-                  slice_len: int = None) -> _DataSets:
+                  slice_len: int = None, verbose: bool = False) -> _DataSets:
     """
     Gets feature dataset from catalog by pointed catalog reader argument, loads
     vector of librated asteroids and separate it on train and test datasets.
@@ -99,6 +100,9 @@ def _get_datasets(librate_list: str, all_librated: str, catalog_reader: CatalogR
     test_feature_set = catalog_features[learn_feature_set.shape[0]:]  # type: np.ndarray
 
     max_number_catalog = test_feature_set[:, 0][-1]
+    if verbose:
+        print(OK, 'Number of last numbered asteroid in catalog is %s' % max_number_catalog,
+              ENDC, sep='')
     all_librated_asteroids = all_librated_asteroids[np.where(
         all_librated_asteroids <= int(max_number_catalog)
     )]
@@ -215,11 +219,12 @@ def clear_classify_all(all_librated: str, parameters: CatalogReader, length,
 SMIRIK_DISCOVERED_AST_COUNT = 249567
 
 
-def classify_all(librate_list: str, all_librated: str, parameters: CatalogReader,
+def classify_all(librate_list: str, all_librated: str, catalog_reader: CatalogReader,
                  clf_presets: Tuple[ClfPreset, ...], verbose=0):
+    datasets = _get_datasets(librate_list, all_librated, catalog_reader, verbose=(verbose > 0))
+    learn_librated_asteroid_count = datasets.librated_asteroids.shape[0]
+    res = _classify_all(datasets, catalog_reader, clf_presets, verbose)
 
-    datasets = _get_datasets(librate_list, all_librated, parameters)
-    res = _classify_all(datasets, parameters, clf_presets, verbose)
     for name, result in res.items():
         numbers_int = np.array([datasets.test_feature_set[:, 0].astype(int)]).T
         all_objects = np.hstack((
@@ -227,17 +232,21 @@ def classify_all(librate_list: str, all_librated: str, parameters: CatalogReader
         ))
 
         predicted_objects = all_objects[np.where(all_objects[:, -1] == 1)]
-        mask = np.where(predicted_objects[:, 0] > SMIRIK_DISCOVERED_AST_COUNT)
-        predicted_objects_2 = predicted_objects[mask][:, 1]
+        new_asteroids_mask = np.where(predicted_objects[:, 0] > SMIRIK_DISCOVERED_AST_COUNT)
 
-        mask = np.in1d(predicted_objects[:, 0], datasets.all_librated_asteroids[50:])
-        predicted_objects_FP = predicted_objects[np.invert(mask)][:, 1]
-        mask = np.in1d(datasets.all_librated_asteroids[50:], predicted_objects[:, 0])
-        predicted_objects_FN = datasets.all_librated_asteroids[50:][np.invert(mask)].astype(str)
+        new_predicted_objects = predicted_objects[new_asteroids_mask]
+        new_predicted_asteroids = new_predicted_objects[:, 1]
+        test_librated_asteroids = datasets.all_librated_asteroids[learn_librated_asteroid_count:]
+
+        mask_FP = np.in1d(predicted_objects[:, 0], test_librated_asteroids)
+        predicted_objects_FP = predicted_objects[np.invert(mask_FP)][:, 1]
+
+        mask_FN = np.in1d(test_librated_asteroids, predicted_objects[:, 0])
+        predicted_objects_FN = test_librated_asteroids[np.invert(mask_FN)].astype(str)
 
         with open('report-%s.txt' % name, 'w') as fd:
             fd.write('Predicted asteroids:\n%s\n' % ','.join(predicted_objects[:, 1]))
-            fd.write('Predicted asteroids after 249567:\n%s\n' % ','.join(predicted_objects_2))
+            fd.write('Predicted asteroids after 249567:\n%s\n' % ','.join(new_predicted_asteroids))
             fd.write('FP:\n%s\n' % ','.join(predicted_objects_FP))
             fd.write('FN:\n%s\n' % ','.join(predicted_objects_FN))
             fd.write('Asteroids was found by integration: %s\n' % datasets.all_librated_asteroids.shape[0])

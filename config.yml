@@ -11,7 +11,7 @@ librations_folders:
   "all-JS": libration_asteroids_JS
 
 classifiers_for_comparing:
-  - {report_name: 'K neighbors', preset: {name: KNN, params: {weights: 'distance', p: 1, n_jobs: 4}}}
+  - {report_name: 'K neighbors', preset: {name: KNN, params: {weights: 'distance', p: 1, n_neighbors: 7, n_jobs: 4}}}
   - {report_name: 'Gradient boosting (10 trees)', preset: {name: GB, params: {n_estimators: 10, learning_rate: 0.85}}}
   - {report_name: 'Gradient boosting (50 trees)', preset: {name: GB, params: {n_estimators: 50, learning_rate: 0.85}}}
     #n_estimators: 7, learning_rate: 0.6, min_samples_split: 33240),
@@ -31,7 +31,7 @@ classifiers_for_comparing:
 
 classifiers:
   KNN:
-    - {weights: 'distance', p: 1, n_jobs: 4}
+    - {weights: 'distance', p: 1, n_jobs: 4, n_neighbors: 7}
     - metric: euclidean
     - metric: knezevic
     - weights: distance
@@ -59,10 +59,12 @@ classifiers:
   XGB:
     - n_estimators: 100
       max_depth: 2
-      n_thread: 1
-      gamma: 0.5
-      subsample: 0.1
-      colsample_bytree: 0.1
+      nthread: 4
+      gamma: 2
+      subsample: 0.2
+      colsample_bytree: 0.5
+      learning_rate: 2
+
 grid_search:
   fields:
     synthetic:

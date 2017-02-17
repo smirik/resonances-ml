@@ -14,6 +14,20 @@ from resonancesml.datainjection import ADatasetInjection
 from resonancesml.datainjection import KeplerInjection
 
 
+SYNTHETIC_CATALOG_HEADER = [
+    '%Name',
+    'mag.',
+    'a (AU)',
+    'e',
+    'sin I',
+    'n (deg/yr)',
+    'g ("/yr)',
+    's ("/yr)',
+    'LCEx1E6',
+    'My',
+]
+
+
 @unique
 class Catalog(Enum):
     syn = 'syn'

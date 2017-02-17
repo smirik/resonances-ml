@@ -23,10 +23,12 @@ _TEST_CLF_HELP = ('Classifier preset. Example: "KNN 0". ' +
                  'Make python -m resonancesml dump_config to see default configuration.')
 
 
-_LEARN_HELP = ('Compares several classifier presets ' +
-               'from section "classifiers_for_comparing" in config ' +
-               '(see `python -m resonancesml dump-config`). ' +
-               'Scores of classificataion are got using cross validation.')
+_CHOOSE_CLF_HELP = (
+    'Compares several classifier presets ' +
+    'from section "classifiers_for_comparing" in config ' +
+    '(see `python -m resonancesml dump-config`). ' +
+    'Scores of classificataion are got using cross validation.'
+)
 
 
 class ClassifierPreset(click.ParamType):
@@ -91,9 +93,9 @@ def _get_classifiers():
     return classifiers, keys
 
 
-@main.command(help=_LEARN_HELP)
+@main.command(help=_CHOOSE_CLF_HELP, name='choose-clf')
 @_learn_options()
-def learn(librate_list: str, catalog: str):
+def choose_clf(librate_list: str, catalog: str):
     from resonancesml.commands.learn import MethodComparer
     from resonancesml.reader import build_reader
     from resonancesml.reader import get_injection
