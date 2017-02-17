@@ -3,6 +3,7 @@ import click
 from resonancesml.reader import Catalog
 from typing import Dict
 from typing import List
+from typing import Tuple
 from resonancesml.settings import PROJECT_DIR
 from resonancesml.settings import set_config_path
 from os.path import join as opjoin
@@ -171,10 +172,11 @@ _CLASSIFY_ALL = (
 @_learn_options()
 @click.option('--all-librated', '-a', type=click.Path(exists=True, resolve_path=True),
               help='File with librated asteroids used for checking.')
-@click.option('--clf', type=ClassifierPreset(), help=_TEST_CLF_HELP)
+@click.option('--clf', 'clf_presets', type=ClassifierPreset(), help=_TEST_CLF_HELP, multiple=True)
+@click.option('--verbose', '-v', type=int, count=True)
 @click.argument('fields', nargs=-1)
 def classify_all(librate_list: str, all_librated: str, catalog: str,
-                 fields: tuple, clf: str):
+                 fields: tuple, clf_presets: Tuple[ClfPreset, ...], verbose):
     from resonancesml.commands.classify import classify_all as _classify_all
     from resonancesml.reader import build_reader
     from resonancesml.reader import get_injection
@@ -182,7 +184,7 @@ def classify_all(librate_list: str, all_librated: str, catalog: str,
     injection = get_injection(_catalog)
     fields = [[int(x) for x in fields]] if fields else None
     parameters = build_reader(_catalog, injection, fields)
-    _classify_all(librate_list, all_librated, parameters, clf)
+    _classify_all(librate_list, all_librated, parameters, clf_presets, verbose)
 
 
 @main.command(name='clear-classify-all')
@@ -192,16 +194,17 @@ def classify_all(librate_list: str, all_librated: str, catalog: str,
 @click.option('--axis-swing', '-s', type=float)
 @click.option('--axis-index', '-i', type=int)
 @click.option('--train-length', '-n', type=int)
+@click.option('--clf', 'clf_presets', type=ClassifierPreset(), help=_TEST_CLF_HELP, multiple=True)
 @click.argument('fields', nargs=-1)
-def clear_classify_all(all_librated: str, catalog: str, fields: tuple,
-                       resonant_axis, axis_swing, axis_index, train_length):
+def clear_classify_all(all_librated: str, catalog: str, fields: tuple, resonant_axis,
+                       axis_swing, axis_index, train_length, clf_presets: Tuple[ClfPreset, ...]):
     assert fields
     from resonancesml.commands.classify import clear_classify_all as _clear_classify_all
     from resonancesml.reader import build_reader
     injection, _catalog = _get_injection_and_catalog(catalog, resonant_axis, axis_swing, axis_index)
     fields = [[int(x) for x in fields]] if fields else None
     parameters = build_reader(_catalog, injection, fields)
-    _clear_classify_all(all_librated, parameters, train_length)
+    _clear_classify_all(all_librated, parameters, train_length, clf_presets)
 
 
 @main.command(name='influence-fields', help='Get influnce of fields for pointed classifier.')

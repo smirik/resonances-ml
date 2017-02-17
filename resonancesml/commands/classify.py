@@ -1,10 +1,10 @@
-from sklearn.neighbors import KNeighborsClassifier
-from sklearn.tree import DecisionTreeClassifier
-from sklearn.ensemble import GradientBoostingClassifier
 from resonancesml.loader import get_asteroids
 from resonancesml.loader import get_learn_set
 from typing import Dict
 from typing import List
+from typing import Tuple
+from typing import Callable
+from typing import Any
 import numpy as np
 from .shortcuts import perf_measure
 from resonancesml.shortcuts import get_target_vector
@@ -17,21 +17,52 @@ from sklearn.metrics import accuracy_score
 from texttable import Texttable
 from sklearn.base import ClassifierMixin
 from resonancesml.reader import CatalogReader
+from time import time
+
 
 class ClassifyResult:
-    def __init__(self, Y_pred, Y_test):
+    def __init__(self, Y_pred: np.ndarray, Y_test: np.ndarray,
+                 fit_time: float, predict_time: float):
         self.predictions = Y_pred
         self.TP, self.FP, self.TN, self.FN = perf_measure(Y_pred, Y_test)
         self.precision = precision_score(Y_test, Y_pred)
         self.recall = recall_score(Y_test, Y_pred)
         self.accuracy = accuracy_score(Y_test, Y_pred)
 
+        self._fit_time = fit_time
+        self._predict_time = predict_time
+
+    @property
+    def fit_time(self) -> float:
+        return self._fit_time
+
+    @property
+    def predict_time(self) -> float:
+        return self._predict_time
+
+
+def _time_exec(func: Callable, *args, **kwargs) -> Tuple[Any, float]:
+    start_time = time()
+    res = func(*args, **kwargs)
+    stop_time = time()
+    execution_time = stop_time - start_time
+    return res, execution_time
+
 
 def _classify(clf: ClassifierMixin, X: np.ndarray, Y: np.ndarray,
-              X_test: np.ndarray, Y_test: np.ndarray) -> ClassifyResult:
-    clf.fit(X, Y)
-    res = clf.predict(X_test)
-    return ClassifyResult(res, Y_test)
+              X_test: np.ndarray, Y_test: np.ndarray, verbose=0) -> ClassifyResult:
+    fit_time, predict_time = None, None
+    if verbose > 0:
+        clf, fit_time = _time_exec(clf.fit, X, Y)
+    else:
+        clf = clf.fit(X, Y)
+
+    if verbose > 0:
+        res, predict_time = _time_exec(clf.predict, X_test)
+    else:
+        res = clf.predict(X_test)
+
+    return ClassifyResult(res, Y_test, fit_time, predict_time)
 
 
 class _DataSets:
@@ -85,12 +116,24 @@ def _build_table() -> Texttable:
     return table
 
 
+def _get_classifiers(clf_presets: Tuple[ClfPreset, ...])\
+        -> Tuple[Dict[str, ClassifierMixin], List[str]]:
+    classifiers = {}
+    preset_names = []
+    for clf_preset in clf_presets:
+        preset_name = '%s %s' % clf_preset
+        clf = get_classifier(clf_preset)
+        classifiers[preset_name] = clf
+        preset_names.append(preset_name)
+    return classifiers, preset_names
+
+
 def _classify_all(datasets: _DataSets, parameters: CatalogReader,
-                  clf_preset: str = None) -> Dict[str, ClassifyResult]:
-    name = clf_preset[0]
+                  clf_presets: Tuple[ClfPreset, ...], verbose=0)\
+        -> Dict[str, ClassifyResult]:
     table = _build_table()
-    clf = get_classifier(clf_preset)
     result = {}
+    classifiers, preset_names = _get_classifiers(clf_presets)
 
     data = []
     for indices in parameters.indices_cases:
@@ -101,12 +144,19 @@ def _classify_all(datasets: _DataSets, parameters: CatalogReader,
         Y_test = get_target_vector(datasets.all_librated_asteroids,
                                    datasets.test_feature_set.astype(int))
 
-        res = _classify(clf, X, Y, X_test, Y_test)
-        data.append('%s;%s;%s;%s' % (name, ' '.join([str(x) for x in indices]), res.TP, res.FP))
-        data.append('%s;%s;%s;%s' % (name, ' '.join([str(x) for x in indices]), res.FN, res.TN))
-        table.add_row([name, ' '.join([str(x) for x in indices]), res.precision, res.recall,
-                       res.accuracy, res.TP, res.FP, res.TN, res.FN])
-        result[name + '-' + '-'.join([str(x) for x in indices])] = res
+        for name in preset_names:
+            clf = classifiers[name]
+            res = _classify(clf, X, Y, X_test, Y_test, verbose)
+            data.append('%s;%s;%s;%s' % (name, ' '.join([str(x) for x in indices]), res.TP, res.FP))
+            data.append('%s;%s;%s;%s' % (name, ' '.join([str(x) for x in indices]), res.FN, res.TN))
+            table.add_row([name, ' '.join([str(x) for x in indices]), res.precision, res.recall,
+                           res.accuracy, res.TP, res.FP, res.TN, res.FN])
+            result[name + '-' + '-'.join([str(x) for x in indices])] = res
+
+            if verbose > 0:
+                fit_time = res.fit_time
+                predict_time = res.predict_time
+                print('%s. Fit time: %f. Predict time: %f.' % (name, fit_time, predict_time))
 
     with open('data.csv', 'w') as fd:
         for item in data:
@@ -116,7 +166,8 @@ def _classify_all(datasets: _DataSets, parameters: CatalogReader,
     print(table.draw())
     print('Amount of resonant asteroids in learning dataset %i' % Y[Y==1].shape[0])
     print('Learning dataset shape %i' % datasets.learn_feature_set.shape[0])
-    print('Total amount of asteroids %i' % (datasets.learn_feature_set.shape[0] + datasets.test_feature_set.shape[0]))
+    print('Total amount of asteroids %i' % (datasets.learn_feature_set.shape[0] +
+                                            datasets.test_feature_set.shape[0]))
 
     return result
 
@@ -155,15 +206,20 @@ def get_librated_asteroids(X_train: np.ndarray, Y_train: np.ndarray, X_test: np.
     return clf.predict(X_test)
 
 
-def clear_classify_all(all_librated: str, parameters: CatalogReader, length):
+def clear_classify_all(all_librated: str, parameters: CatalogReader, length,
+                       clf_presets: Tuple[ClfPreset, ...]):
     datasets = _get_datasets(all_librated, all_librated, parameters, length)
-    _classify_all(datasets, parameters)
+    _classify_all(datasets, parameters, clf_presets)
+
+
+SMIRIK_DISCOVERED_AST_COUNT = 249567
 
 
 def classify_all(librate_list: str, all_librated: str, parameters: CatalogReader,
-                 clf_name: str = None):
+                 clf_presets: Tuple[ClfPreset, ...], verbose=0):
+
     datasets = _get_datasets(librate_list, all_librated, parameters)
-    res = _classify_all(datasets, parameters, clf_name)
+    res = _classify_all(datasets, parameters, clf_presets, verbose)
     for name, result in res.items():
         numbers_int = np.array([datasets.test_feature_set[:, 0].astype(int)]).T
         all_objects = np.hstack((
@@ -171,7 +227,8 @@ def classify_all(librate_list: str, all_librated: str, parameters: CatalogReader
         ))
 
         predicted_objects = all_objects[np.where(all_objects[:, -1] == 1)]
-        predicted_objects_2 = predicted_objects[np.where(predicted_objects[:, 0] > 249567)][:, 1]
+        mask = np.where(predicted_objects[:, 0] > SMIRIK_DISCOVERED_AST_COUNT)
+        predicted_objects_2 = predicted_objects[mask][:, 1]
 
         mask = np.in1d(predicted_objects[:, 0], datasets.all_librated_asteroids[50:])
         predicted_objects_FP = predicted_objects[np.invert(mask)][:, 1]
