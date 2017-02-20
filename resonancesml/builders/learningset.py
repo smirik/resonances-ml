@@ -4,10 +4,8 @@ from resonancesml.loader import get_asteroids
 from resonancesml.loader import get_learn_set
 from resonancesml.shortcuts import get_target_vector
 from resonancesml.shortcuts import get_feature_matrix
-from resonancesml.reader import Catalog
 from typing import Tuple
 from typing import List
-from resonancesml.shortcuts import get_headers
 
 
 LearningSetCase = Tuple[np.ndarray, List[str]]
@@ -32,7 +30,7 @@ class LearningSetBuilder:
 
     def build_features_case(self, indices_case: int = 0) -> LearningSetCase:
         indices = self._catalog_reader.indices_cases[indices_case]
-        headers = get_headers(self._catalog_reader, indices)
+        headers = self._catalog_reader.get_headers(indices)
         features = get_feature_matrix(self._learn_feature_set, False, indices)
         return features, headers
 

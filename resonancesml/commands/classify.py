@@ -97,6 +97,9 @@ def _get_datasets(librate_list: str, all_librated: str, catalog_reader: CatalogR
     if slice_len is None:
         slice_len = librated_asteroids[-1]
 
+    if catalog_reader.injection:
+        catalog_features = catalog_reader.injection.update_data(catalog_features)
+
     learn_feature_set = get_learn_set(catalog_features, str(slice_len))  # type: np.ndarray
     test_feature_set = catalog_features[learn_feature_set.shape[0]:]  # type: np.ndarray
 
@@ -136,7 +139,7 @@ def _get_classifiers(clf_presets: Tuple[ClfPreset, ...])\
     return classifiers, preset_names
 
 
-def _classify_all(datasets: _DataSets, parameters: CatalogReader,
+def _classify_all(datasets: _DataSets, catalog_reader: CatalogReader,
                   clf_presets: Tuple[ClfPreset, ...], verbose=0)\
         -> Dict[str, ClassifyResult]:
     table = _build_table()
@@ -144,7 +147,7 @@ def _classify_all(datasets: _DataSets, parameters: CatalogReader,
     classifiers, preset_names = _get_classifiers(clf_presets)
 
     data = []
-    for indices in parameters.indices_cases:
+    for indices in catalog_reader.indices_cases:
         X = get_feature_matrix(datasets.learn_feature_set, False, indices)
         Y = get_target_vector(datasets.librated_asteroids, datasets.learn_feature_set.astype(int))
 
@@ -214,9 +217,9 @@ def get_librated_asteroids(X_train: np.ndarray, Y_train: np.ndarray, X_test: np.
     return clf.predict(X_test)
 
 
-def clear_classify_all(all_librated: str, parameters: CatalogReader, length,
-                       clf_presets: Tuple[ClfPreset, ...]):
-    datasets = _get_datasets(all_librated, all_librated, parameters, length)
+def clear_classify_all(all_librated: str, parameters: CatalogReader,
+                       clf_presets: Tuple[ClfPreset, ...], verbose=0):
+    datasets = _get_datasets(all_librated, all_librated, parameters, verbose=(verbose > 0))
     _classify_all(datasets, parameters, clf_presets)
 
 

@@ -10,6 +10,7 @@ from resonancesml.shortcuts import get_target_vector
 from resonancesml.shortcuts import WARN
 from resonancesml.shortcuts import ENDC
 from imblearn.over_sampling import SMOTE
+from resonancesml.shortcuts import get_mask_for_axis
 from resonancesml.shortcuts import ProgressBar
 import numpy as np
 from typing import Iterable
@@ -362,9 +363,7 @@ _cached_mask = {'axis': None, 'mask': None}
 def _get_mask(by_axis: float, vector: np.ndarray) -> np.ndarray:
     global _cached_mask
     if _cached_mask['axis'] != by_axis:
-        axis_bottom = by_axis - 0.01
-        axis_top = by_axis + 0.01
-        mask = np.where((vector >= axis_bottom) & (vector <= axis_top))
+        mask = get_mask_for_axis(by_axis, 0.01, vector)
         _cached_mask['mask'] = mask
         _cached_mask['axis'] = by_axis
     return _cached_mask['mask']
