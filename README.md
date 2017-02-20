@@ -6,16 +6,17 @@
 ## Abstract
 
 The application identifies three-body resonances using machine learning (ML)
-techniques. It takes data from AstDys catalog that will be used as feature
-dataset and text file with asteroids has resonance, they will be used for
+techniques. It uses data from AstDys catalog as source of feature
+dataset and it uses text file contains resonanct asteroids, the file will be used for
 forming target vector. The application allows to check desired ML technique for
 common metrics and for influence of pointed features.
 The application by default has:
 
 * Catalogs.
 * Lists of 50, 100, 200 resonant asteroids for Jupiter Saturn resonance with integers 4 -2 -1.
+* Lists of 50, 100, 200 resonant asteroids for Jupiter Saturn pure resonance with integers 4 -2 -1.
 * List of all resonant asteroids for Jupiter Saturn resonance with integers 4 -2 -1.
-* Lists of all resonant asteroids for Jupiter Saturn resonance with integers from 1 to 25 order.
+* List of all resonant asteroids for Jupiter Saturn pure resonance with integers 4 -2 -1.
 * Configuration file with couple of ML techniques suitable for classifying.
   Suitability of them determined by related research.
 
