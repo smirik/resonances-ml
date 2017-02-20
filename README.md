@@ -28,7 +28,23 @@ You can install the Resonances ML using Python package manager pip
 
 ## Usage
 
-Commands `get`, `test-clf`, `plot` build cache. Point flag `-r` to remove it.
+First. Huge part of input data is in configuration. Configuration data is
+stored by YAML format.  You can customize it by pointing your configuration
+file.  Do `python -m resonanceml dump-config` to get default configuration. You
+can redirect output to your file.  Let's say you want to make configuration
+file `my-config.yml`. For this execute `python -m resonanceml dump-config >
+my-config.yml` When you get your own configuration file you can customize it by
+you favorite text editor and you are able for pointing it for the application.
+Make `python -m resonanceml -c  my-config.yml <another command of the
+application>` for executing some another command of the application based on
+your configuration file.
+
+
+### Choosing classifier
+
+Use command `python -m resonancesml choose-clf` to compare classifiers pointed inside
+
+Commands `choose-clf`, `influence-fields`, `classify-all`, `get_optimal_parameters`.
 
 ### Getting resonant asteroids
 

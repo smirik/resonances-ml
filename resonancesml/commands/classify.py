@@ -127,7 +127,9 @@ def _get_classifiers(clf_presets: Tuple[ClfPreset, ...])\
     preset_names = []
     for clf_preset in clf_presets:
         clf, clf_kwargs = get_classifier_with_kwargs(clf_preset)
-        serialized_kwargs = ''.join(['%s%s' % (x, y) for x, y in clf_kwargs.items() if x not in ('n_jobs', 'weights')])
+        kwarg_names = sorted(clf_kwargs)
+        serialized_kwargs = ''.join(['%s%s' % (x, clf_kwargs[x]) for x in kwarg_names
+                                     if x not in ('n_jobs', 'weights')])
         preset_name = '%s_%s' % (clf_preset[0], serialized_kwargs)
         classifiers[preset_name] = clf
         preset_names.append(preset_name)
