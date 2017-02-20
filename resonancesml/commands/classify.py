@@ -12,6 +12,7 @@ from resonancesml.shortcuts import get_target_vector
 from resonancesml.shortcuts import get_feature_matrix
 from resonancesml.shortcuts import ClfPreset
 from resonancesml.shortcuts import get_classifier
+from resonancesml.shortcuts import get_classifier_with_kwargs
 from sklearn.metrics import precision_score
 from sklearn.metrics import recall_score
 from sklearn.metrics import accuracy_score
@@ -125,8 +126,9 @@ def _get_classifiers(clf_presets: Tuple[ClfPreset, ...])\
     classifiers = {}
     preset_names = []
     for clf_preset in clf_presets:
-        preset_name = '%s %s' % clf_preset
-        clf = get_classifier(clf_preset)
+        clf, clf_kwargs = get_classifier_with_kwargs(clf_preset)
+        serialized_kwargs = ''.join(['%s%s' % (x, y) for x, y in clf_kwargs.items() if x not in ('n_jobs', 'weights')])
+        preset_name = '%s_%s' % (clf_preset[0], serialized_kwargs)
         classifiers[preset_name] = clf
         preset_names.append(preset_name)
     return classifiers, preset_names
