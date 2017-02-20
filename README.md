@@ -48,7 +48,11 @@ Use command `python -m resonancesml choose-clf` to compare classifiers' scores.
 All scores are computed by cross validation using k folding by 5 parts.
 This command uses classifiers from section `classifiers_for_comparing` in
 configuration (see `python -m resonancesml dump-config`).
-Example: `python -m resonancesml choose-clf -l input/librations/first50_librated_asteroids_4_-2_-1 -c syn`.
+Example:
+```
+python -m resonancesml choose-clf -c syn \
+    -l input/librations/first50_librated_asteroids_4_-2_-1
+```
 
 ### Influence fields
 
@@ -58,7 +62,11 @@ configuration section `influence`. The section contains two keys: `synthetic`
 for catalog of synthetic elements and `orbital` for catalog of orbital
 elements.  All scores are computed by cross validation using k folding by 5
 parts.
-Example: `python -m resonancesml influence-fields -c syn --clf="DT 0" -l input/librations/first50_librated_asteroids_4_-2_-1`
+Example:
+```
+python -m resonancesml influence-fields -c syn --clf="DT 0" \
+    -l input/librations/first50_librated_asteroids_4_-2_-1
+```
 Option `--clf` consist of short name of classifier and number of parameter preset. See `classifiers` section from configuration.
 The section field names are short names of all available classifiers in the application.
 
@@ -93,7 +101,7 @@ For search optimal parameters there is command `python -m resonancesml get_optim
 Scores are computed by cross validation. Example:
 ```
 python -m resonancesml get_optimal_parameters -c syn --clf KNN \
--l input/librations/4J-2S-1-pure/first200
+    -l input/librations/4J-2S-1-pure/first200
 ```
 It makes builds all possible combinations from section `grid_search`. In this case `grid_search` section should contain section `KNN` with
 fields named same as parameters of [KNeighborsClassifier](http://scikit-learn.org/stable/modules/generated/sklearn.neighbors.KNeighborsClassifier.html#sklearn.neighbors.KNeighborsClassifier).
