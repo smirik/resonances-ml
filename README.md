@@ -59,6 +59,8 @@ for catalog of synthetic elements and `orbital` for catalog of orbital
 elements.  All scores are computed by cross validation using k folding by 5
 parts.
 Example: `python -m resonancesml influence-fields -c syn --clf="DT 0" -l input/librations/first50_librated_asteroids_4_-2_-1`
+Option `--clf` consist of short name of classifier and number of parameter preset. See `classifiers` section from configuration.
+The section field names are short names of all available classifiers in the application.
 
 ### Classification by all asteroids
 
@@ -69,7 +71,7 @@ validation. For rating them another list of asteroids is used. Also this command
 * Numbers of asteroids predicated as librated but they are not librated (false positive objects).
 * Numbers of asteroids predicated as not librated but they are librated (false negative objects).
 
-Command `python -m resonancesml classify-all` necessary for:
+Command `python -m resonancesml classify-all` requires:
 * Several classifiers
 * File contains librated asteroids for learning.
 * File contains all librated asteroids for testing.
@@ -80,3 +82,19 @@ Example:
 python -m resonancesml classify-all -l input/librations/first50_librated_asteroids_4_-2_-1 \
     -a input/librations/all_librated_asteroids_4_-2_-1 -c syn --clf="KNN 0" --clf="DT 0" 2 3 4 5
 ```
+
+### Grid search over parameters
+
+For search optimal parameters there is command `python -m resonancesml get_optimal_parameters`. It requires:
+
+* Classifier, pointed by short name (see Influence fields).
+* File contains librated asteroids for learning.
+
+Scores are computed by cross validation. Example:
+```
+python -m resonancesml get_optimal_parameters -c syn --clf KNN \
+-l input/librations/4J-2S-1-pure/first200
+```
+It makes builds all possible combinations from section `grid_search`. In this case `grid_search` section should contain section `KNN` with
+fields named same as parameters of [KNeighborsClassifier](http://scikit-learn.org/stable/modules/generated/sklearn.neighbors.KNeighborsClassifier.html#sklearn.neighbors.KNeighborsClassifier).
+Every field has a list of wanted values.
