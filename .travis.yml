@@ -7,21 +7,29 @@ install:
   - pip install -e .
 
 script:
-  - python -m resonancesml choose-clf -l input/librations/first50_librated_asteroids_4_-2_-1 -c syn
+  - python -m resonancesml choose-clf -l input/librations/first50_librated_asteroids_4_-2_-1 -c syn > result.txt
+  - diff result.txt ./functional-tests/choose-clf.txt
 
-  - python -m resonancesml influence-fields -c syn --clf="DT 0" -l input/librations/first50_librated_asteroids_4_-2_-1
-  - python -m resonancesml influence-fields -c syn --clf="KNN 0" -l input/librations/first50_librated_asteroids_4_-2_-1
-  - python -m resonancesml influence-fields -c syn --clf="XGB 0" -l input/librations/first50_librated_asteroids_4_-2_-1
+  - python -m resonancesml influence-fields -c syn --clf="DT 0" -l input/librations/first50_librated_asteroids_4_-2_-1 > result.txt
+  - diff result.txt ./functional-tests/influence-fields-DT-0.txt
+  - python -m resonancesml influence-fields -c syn --clf="KNN 0" -l input/librations/first50_librated_asteroids_4_-2_-1 > result.txt
+  - diff result.txt ./functional-tests/influence-fields-KNN-0.txt
+  - python -m resonancesml influence-fields -c syn --clf="XGB 0" -l input/librations/first50_librated_asteroids_4_-2_-1 > result.txt
+  - diff result.txt ./functional-tests/influence-fields-XGB-0.txt
 
-  - python -m resonancesml classify-all -l input/librations/first50_librated_asteroids_4_-2_-1 -a input/librations/all_librated_asteroids_4_-2_-1  -c syn --clf="KNN 0" --clf="DT 0" 2 3 4 5 -v
-  - python -m resonancesml classify-all -l input/librations/first100_librated_asteroids_4_-2_-1 -a input/librations/all_librated_asteroids_4_-2_-1  -c syn --clf="KNN 0" --clf="DT 0" 2 3 4 5 -v
-  - python -m resonancesml classify-all -l input/librations/first200_librated_asteroids_4_-2_-1 -a input/librations/all_librated_asteroids_4_-2_-1  -c syn --clf="KNN 0" --clf="DT 0" 2 3 4 5 -v
+  - python -m resonancesml classify-all -l input/librations/first50_librated_asteroids_4_-2_-1 -a input/librations/all_librated_asteroids_4_-2_-1  -c syn --clf="KNN 0" --clf="DT 0" 2 3 4 5 > result.txt
+  - diff result.txt ./functional-tests/classify-all/KNN-0_DT-0_50-2-3-4-5.txt
+  - python -m resonancesml classify-all -l input/librations/first100_librated_asteroids_4_-2_-1 -a input/librations/all_librated_asteroids_4_-2_-1  -c syn --clf="KNN 0" --clf="DT 0" 2 3 4 5 > result.txt
+  - diff result.txt ./functional-tests/classify-all/KNN-0_DT-0_100-2-3-4-5.txt
+  - python -m resonancesml classify-all -l input/librations/first200_librated_asteroids_4_-2_-1 -a input/librations/all_librated_asteroids_4_-2_-1  -c syn --clf="KNN 0" --clf="DT 0" 2 3 4 5 > result.txt
+  - diff result.txt ./functional-tests/classify-all/KNN-0_DT-0_200-2-3-4-5.txt
 
-  - python -m resonancesml classify-all -l input/librations/first50_librated_asteroids_4_-2_-1 -a input/librations/all_librated_asteroids_4_-2_-1  -c syn --clf="KNN 0" --clf="DT 0" 2 3 5 -v
-  - python -m resonancesml classify-all -l input/librations/first100_librated_asteroids_4_-2_-1 -a input/librations/all_librated_asteroids_4_-2_-1  -c syn --clf="KNN 0" --clf="DT 0" 2 3 5 -v
-  - python -m resonancesml classify-all -l input/librations/first200_librated_asteroids_4_-2_-1 -a input/librations/all_librated_asteroids_4_-2_-1  -c syn --clf="KNN 0" --clf="DT 0" 2 3 5 -v
-
-  - python -m resonancesml get_optimal_parameters -c syn --clf=KNN -l input/librations/4J-2S-1-pure/first200
+  - python -m resonancesml classify-all -l input/librations/first50_librated_asteroids_4_-2_-1 -a input/librations/all_librated_asteroids_4_-2_-1  -c syn --clf="KNN 0" --clf="DT 0" 2 3 5 > result.txt
+  - diff result.txt ./functional-tests/classify-all/KNN-0_DT-0_50-2-3-5.txt
+  - python -m resonancesml classify-all -l input/librations/first100_librated_asteroids_4_-2_-1 -a input/librations/all_librated_asteroids_4_-2_-1  -c syn --clf="KNN 0" --clf="DT 0" 2 3 5 > result.txt
+  - diff result.txt ./functional-tests/classify-all/KNN-0_DT-0_100-2-3-5.txt
+  - python -m resonancesml classify-all -l input/librations/first200_librated_asteroids_4_-2_-1 -a input/librations/all_librated_asteroids_4_-2_-1  -c syn --clf="KNN 0" --clf="DT 0" 2 3 5 > result.txt
+  - diff result.txt ./functional-tests/classify-all/KNN-0_DT-0_200-2-3-5.txt
 
   - python -m resonancesml dump-config
 
