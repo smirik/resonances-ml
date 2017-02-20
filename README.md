@@ -28,7 +28,7 @@ You can install the Resonances ML using Python package manager pip
 
 ## Usage
 
-First. Huge part of input data is in configuration. Configuration data is
+First of all huge part of input data is in configuration. Configuration data is
 stored by YAML format.  You can customize it by pointing your configuration
 file.  Do `python -m resonanceml dump-config` to get default configuration. You
 can redirect output to your file.  Let's say you want to make configuration
@@ -39,10 +39,23 @@ Make `python -m resonanceml -c  my-config.yml <another command of the
 application>` for executing some another command of the application based on
 your configuration file.
 
+Also every command has option `--help`. If some of commands or options is not clear checkout `python -m resonancesml --help` or
+`python -m resonancesml <some_command> --help`
 
 ### Choosing classifier
 
-Use command `python -m resonancesml choose-clf` to compare classifiers pointed inside
+Use command `python -m resonancesml choose-clf` to compare classifiers' scores.
+This command uses classifiers from section `classifiers_for_comparing` in
+configuration (see `python -m resonancesml dump-config`).
+Example: `python -m resonancesml choose-clf -l input/librations/first50_librated_asteroids_4_-2_-1 -c syn`.
+
+### Inflence fields
+
+For comparing significance of fields from catalog there is command `python -m
+resonancesml influence-fields`. It iterate searches cases of indieces
+combinations from configuration section `influence`.
+
+### Classification by all asteroids
 
 Commands `choose-clf`, `influence-fields`, `classify-all`, `get_optimal_parameters`.
 
