@@ -58,7 +58,7 @@ For filtering data before classification use `clear-choose-clf`
 
 Example:
 ```
-python -m resonancesml choose-clf -c syn -x 2.39 -s 0.01 -i 2 \
+python -m resonancesml clear-choose-clf -c syn -x 2.39 -s 0.01 -i 2 \
     -l input/librations/first50_librated_asteroids_4_-2_-1
 ```
 where `-x` is value of resonant axis, `-s` possible axis variation, `-i` is
