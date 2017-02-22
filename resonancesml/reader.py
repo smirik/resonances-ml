@@ -2,6 +2,7 @@ from resonancesml.settings import SYN_CATALOG_PATH
 from resonancesml.settings import CAT_CATALOG_PATH
 from resonancesml.settings import PRO_CATALOG_PATH
 from resonancesml.settings import params
+import re
 import pandas
 from pandas import DataFrame
 
@@ -82,6 +83,28 @@ class CatalogReader:
         if self.dataset_end:
             catalog_features = catalog_features[:self.dataset_end]
         return catalog_features
+
+    def get_headers(self, by_indices: List[int]) -> List[str]:
+        """
+        Returns headers from catalog of catalog_reader by indices.
+        """
+        headers = []
+        header_line_number = self.skiprows - 1
+        with open(self.catalog_path) as f:
+            for i, line in enumerate(f):
+                if i == header_line_number:
+                    replace_regex = re.compile("\([^\(]*\)")
+                    line = replace_regex.sub(' ', line)
+                    delimiter_regex = re.compile(self.delimiter)
+                    headers = [x.strip() for x in delimiter_regex.split(line) if x]
+                    if self.injection:
+                        headers += self.injection.headers
+                elif i > header_line_number:
+                    break
+        res = []
+        for index in by_indices:
+            res.append(headers[index])
+        return res
 
 
 class CatalogException(Exception):

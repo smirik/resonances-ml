@@ -1,5 +1,4 @@
 import sys
-import re
 import itertools
 import numpy as np
 from typing import List
@@ -15,7 +14,6 @@ from sklearn.base import ClassifierMixin
 from sklearn.neighbors import KNeighborsClassifier
 from sklearn.tree import DecisionTreeClassifier
 from sklearn.ensemble import GradientBoostingClassifier
-from resonancesml.reader import CatalogReader
 import xgboost as xgb
 
 ClfPreset = Tuple[str, int]
@@ -121,32 +119,16 @@ def get_classifier(by_preset: ClfPreset) -> ClassifierMixin:
     return clf
 
 
-def get_headers(catalog_reader: CatalogReader, by_indices: List[int]) -> List[str]:
-    """
-    Returns headers from catalog of catalog_reader by indices.
-    """
-    headers = []
-    header_line_number = catalog_reader.skiprows - 1
-    with open(catalog_reader.catalog_path) as f:
-        for i, line in enumerate(f):
-            if i == header_line_number:
-                replace_regex = re.compile("\([^\(]*\)")
-                line = replace_regex.sub(' ', line)
-                delimiter_regex = re.compile(catalog_reader.delimiter)
-                headers = [x.strip() for x in delimiter_regex.split(line) if x]
-                if catalog_reader.injection:
-                    headers += catalog_reader.injection.headers
-            elif i > header_line_number:
-                break
-    res = []
-    for index in by_indices:
-        res.append(headers[index])
-    return res
-
-
 def getall_combinations(stuff):
     result = []
     for L in range(0, len(stuff)+1):
         for subset in itertools.combinations(stuff, L):
             result.append(subset)
     return result
+
+
+def get_mask_for_axis(axis_value, axis_swing, vector) -> np.ndarray:
+    axis_bottom = axis_value - axis_swing
+    axis_top = axis_value + axis_swing
+    mask = np.where((vector >= axis_bottom) & (vector <= axis_top))
+    return mask

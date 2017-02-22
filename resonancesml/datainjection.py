@@ -1,6 +1,7 @@
 import numpy as np
 from abc import abstractclassmethod
 from typing import List
+from resonancesml.shortcuts import get_mask_for_axis
 
 
 class ADatasetInjection(object):
@@ -30,7 +31,9 @@ class _DataFilter(ADatasetInjection):
         self.resonant_axis = resonant_axis
 
     def update_data(self, X: np.ndarray) -> np.ndarray:
-        X = X[np.where(np.abs(X[:, self.axis_index] - self.resonant_axis) <= self.axis_swing)]
+        axis_vector = X[:, self.axis_index]
+        mask = get_mask_for_axis(self.resonant_axis, 0.01, axis_vector)
+        X = X[mask]
         return X
 
 
@@ -51,7 +54,7 @@ class ClearDecorator(_DataFilter):
         return self._decorating.update_data(X)
 
 
-class ClearInjection(ADatasetInjection):
+class ClearInjection(_DataFilter):
     def __init__(self, resonant_axis: float, axis_swing: float, axis_index: int):
         super(ClearInjection, self).__init__([], resonant_axis, axis_swing, axis_index)
 

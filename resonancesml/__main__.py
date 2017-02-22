@@ -9,6 +9,7 @@ from resonancesml.settings import set_config_path
 from os.path import join as opjoin
 from resonancesml.shortcuts import ClfPreset
 from resonancesml.shortcuts import get_classifier
+from resonancesml.datainjection import ADatasetInjection
 
 
 _CATALOG_HELP = (
@@ -62,6 +63,24 @@ def _learn_options():
     )
 
 
+def _classify_all_opts():
+    return _unite_decorators(
+        click.option('--all-librated', '-a', type=click.Path(exists=True, resolve_path=True),
+                      help='File with librated asteroids used for checking.'),
+        click.option('--clf', 'clf_presets', type=ClassifierPreset(),
+                     help=_TEST_CLF_HELP, multiple=True),
+        click.option('--verbose', '-v', type=int, count=True),
+    )
+
+
+def _clear_opts():
+    return _unite_decorators(
+        click.option('--resonant-axis', '-x', type=float),
+        click.option('--axis-swing', '-s', type=float),
+        click.option('--axis-index', '-i', type=int),
+    )
+
+
 def _influence_options():
     return _unite_decorators(
         _learn_options(),
@@ -101,22 +120,14 @@ def choose_clf(librate_list: str, catalog: str):
     from resonancesml.reader import get_injection
     _catalog = Catalog(catalog)
     injection = get_injection(_catalog)
-    parameters = build_reader(_catalog, injection, None)
-    tester = MethodComparer(librate_list, parameters)
+    catalog_reader = build_reader(_catalog, injection, None)
+    tester = MethodComparer(librate_list, catalog_reader)
     tester.set_methods(*(_get_classifiers()))
     tester.learn()
 
 
-def _learn_tester(librate_list, clf: ClfPreset, parameters):
-    from resonancesml.commands.learn import MethodComparer
-    tester = MethodComparer(librate_list, parameters)
-    classifiers = { clf[0]: get_classifier(clf) }
-    tester.set_methods(classifiers, [clf[0]])
-    tester.learn()
-
-
-def _get_injection_and_catalog(catalog: str, resonant_axis: float,
-                               axis_swing: float, axis_index: int) -> tuple:
+def _get_injection_and_catalog(catalog: str, resonant_axis: float, axis_swing: float,
+                               axis_index: int) -> Tuple[ADatasetInjection, Catalog]:
     from resonancesml.reader import get_injection
     from resonancesml.datainjection import ClearDecorator
     from resonancesml.datainjection import ClearInjection
@@ -124,30 +135,22 @@ def _get_injection_and_catalog(catalog: str, resonant_axis: float,
     _catalog = Catalog(catalog)
     injection = get_injection(_catalog)
     args = (resonant_axis, axis_swing, axis_index)
-    injection = ClearDecorator(injection, *args) if injection else ClearInjection(*args)
-    return injection, _catalog
+
+    if injection:
+        clear_injection = ClearDecorator(injection, *args)
+    else:
+        clear_injection = ClearInjection(*args)
+    return clear_injection, _catalog
 
 
-@main.command('clear-influence-trainset')
-@_influence_options()
-@click.option('--resonant-axis', '-x', type=float)
-@click.option('--axis-swing', '-s', type=float)
-@click.option('--axis-index', '-i', type=int)
-def clear_influence_trainset(librate_list: str, catalog: str, clf: ClfPreset, fields: tuple,
-                             resonant_axis: float, axis_swing: float, axis_index: int):
-    from resonancesml.reader import build_reader_for_influence
-    injection, _catalog = _get_injection_and_catalog(catalog, resonant_axis, axis_swing, axis_index)
-    catalog_reader = build_reader_for_influence(_catalog, injection)
-    _learn_tester(librate_list, clf, catalog_reader)
+_CLEAR_HELP_TEMPLATE = 'Does same as %s, but filters asteroids by axis.'
 
 
-@main.command(name='clear-learn')
+@main.command(name='clear-choose-clf', help=_CLEAR_HELP_TEMPLATE % 'choose-clf')
 @_learn_options()
-@click.option('--resonant-axis', '-x', type=float)
-@click.option('--axis-swing', '-s', type=float)
-@click.option('--axis-index', '-i', type=int)
+@_clear_opts()
 @click.argument('fields', nargs=-1)
-def clear_learn(librate_list: str, catalog: str, fields: tuple,
+def clear_choose_clf(librate_list: str, catalog: str, fields: tuple,
                 resonant_axis: float, axis_swing: float, axis_index: int):
     from resonancesml.commands.learn import MethodComparer
     from resonancesml.reader import build_reader
@@ -172,10 +175,7 @@ _CLASSIFY_ALL = (
 
 @main.command(name='classify-all', help=_CLASSIFY_ALL)
 @_learn_options()
-@click.option('--all-librated', '-a', type=click.Path(exists=True, resolve_path=True),
-              help='File with librated asteroids used for checking.')
-@click.option('--clf', 'clf_presets', type=ClassifierPreset(), help=_TEST_CLF_HELP, multiple=True)
-@click.option('--verbose', '-v', type=int, count=True)
+@_classify_all_opts()
 @click.argument('fields', nargs=-1)
 def classify_all(librate_list: str, all_librated: str, catalog: str,
                  fields: tuple, clf_presets: Tuple[ClfPreset, ...], verbose):
@@ -185,28 +185,25 @@ def classify_all(librate_list: str, all_librated: str, catalog: str,
     _catalog = Catalog(catalog)
     injection = get_injection(_catalog)
     fields = [[int(x) for x in fields]] if fields else None
-    parameters = build_reader(_catalog, injection, fields)
-    _classify_all(librate_list, all_librated, parameters, clf_presets, verbose)
+    catalog_reader = build_reader(_catalog, injection, fields)
+    _classify_all(librate_list, all_librated, catalog_reader, clf_presets, verbose)
 
 
-@main.command(name='clear-classify-all')
-@click.option('--all-librated', '-a', type=click.Path(exists=True, resolve_path=True))
-@click.option('--catalog', '-c', type=click.Choice([x.name for x in Catalog]))
-@click.option('--resonant-axis', '-x', type=float)
-@click.option('--axis-swing', '-s', type=float)
-@click.option('--axis-index', '-i', type=int)
-@click.option('--train-length', '-n', type=int)
-@click.option('--clf', 'clf_presets', type=ClassifierPreset(), help=_TEST_CLF_HELP, multiple=True)
+@main.command(name='clear-classify-all', help=_CLEAR_HELP_TEMPLATE % 'classify-all')
+@_learn_options()
+@_classify_all_opts()
+@_clear_opts()
 @click.argument('fields', nargs=-1)
 def clear_classify_all(all_librated: str, catalog: str, fields: tuple, resonant_axis,
-                       axis_swing, axis_index, train_length, clf_presets: Tuple[ClfPreset, ...]):
+                       axis_swing, axis_index, verbose: bool, clf_presets: Tuple[ClfPreset, ...],
+                       librate_list: str):
     assert fields
-    from resonancesml.commands.classify import clear_classify_all as _clear_classify_all
+    from resonancesml.commands.classify import classify_all as _classify_all
     from resonancesml.reader import build_reader
     injection, _catalog = _get_injection_and_catalog(catalog, resonant_axis, axis_swing, axis_index)
     fields = [[int(x) for x in fields]] if fields else None
-    parameters = build_reader(_catalog, injection, fields)
-    _clear_classify_all(all_librated, parameters, train_length, clf_presets)
+    catalog_reader = build_reader(_catalog, injection, fields)
+    _classify_all(librate_list, all_librated, catalog_reader, clf_presets, verbose)
 
 
 @main.command(name='influence-fields', help='Get influnce of fields for pointed classifier.')
@@ -222,25 +219,17 @@ def influence_fields(librate_list: str, catalog: str, clf: ClfPreset):
     tester.learn()
 
 
-@main.command(name='clear-influence-fields')
-@click.option('--librate-list', '-l', type=click.Path(exists=True, resolve_path=True))
-@click.option('--catalog', '-c', type=click.Choice([x.name for x in Catalog]))
-@click.option('--clf', type=ClassifierPreset())
-@click.option('--resonant-axis', '-x', type=float)
-@click.option('--axis-swing', '-s', type=float)
-@click.option('--axis-index', '-i', type=int)
+@main.command(name='clear-influence-fields', help=_CLEAR_HELP_TEMPLATE % 'influence-fields')
+@_influence_options()
+@_clear_opts()
 def clear_influence_fields(librate_list: str, catalog: str, clf: ClfPreset,
                            resonant_axis, axis_swing, axis_index):
     from resonancesml.commands.learn import MethodComparer
-    from resonancesml.datainjection import ClearDecorator
-    from resonancesml.reader import get_compare_parameters
-    from resonancesml.reader import get_injection
-
-    _catalog = Catalog(catalog)
-    injection = ClearDecorator(get_injection(_catalog), resonant_axis, axis_swing, axis_index)
-    parameters = get_compare_parameters(_catalog, injection)
+    from resonancesml.reader import build_reader_for_influence
+    injection, _catalog = _get_injection_and_catalog(catalog, resonant_axis, axis_swing, axis_index)
+    catalog_reader = build_reader_for_influence(Catalog(catalog), injection)
     classifiers = { clf[0]: get_classifier(clf) }
-    tester = MethodComparer(librate_list, parameters)
+    tester = MethodComparer(librate_list, catalog_reader)
     tester.set_methods(classifiers, [clf[0]])
     tester.learn()
 
@@ -355,8 +344,22 @@ def dump_config():
     print(params().dump())
 
 
-@main.command()
-@click.option('--clf', type=str)
+_GET_OPTIMAL_PARAMETERS_HELP = (
+    'Makes grid search over parameters from "grid_search" configuration section ' +
+    'for pointed classifier. Supported classifiers are in section "classifiers". ' +
+    'If you want make classifier able for grid_search add them short name to ' +
+    '"grid_search" configuration section and point parameters for "grid_search" the same as for KNN'
+)
+
+
+_GET_OPTIMAL_PARAMETERS_CLF_HELP = (
+    'Classifer shortname. Available classifiers are in section "grid_search".' +
+    'This section is extendable by classifers from "classifers" section.'
+)
+
+
+@main.command(help=_GET_OPTIMAL_PARAMETERS_HELP)
+@click.option('--clf', type=str, help=_GET_OPTIMAL_PARAMETERS_CLF_HELP)
 @click.option('--librate-list', '-l', 'librate_list_paths',
               type=click.Path(exists=True, resolve_path=True),
               default=(DEFAULT_LIBRATION_LIST,), show_default=True, multiple=True,
@@ -368,14 +371,17 @@ def get_optimal_parameters(clf: str, librate_list_paths: tuple, catalog: str):
     get_optimal_parameters(clf, librate_list_paths, catalog)
 
 
-@main.command()
+@main.command(help='Makes grid_search over set of coeffitients values that have been made by' +
+              ' step 0.1. Features from catalog are multiplied by radical of the related value ' +
+              '. Works only for KNN and only for axis, eccentricity, inclination and mean motion' +
+              ' from synthetic elements.')
 @click.option('--clf', type=ClassifierPreset(), help=_TEST_CLF_HELP)
 @click.option('--librate-list', '-l', 'librate_list_paths',
               type=click.Path(exists=True, resolve_path=True),
               default=(DEFAULT_LIBRATION_LIST,), show_default=True,
               help='Path to file with librated asteroids.')
 @click.option('--catalog', '-c', type=click.Choice([x.name for x in Catalog]),
-              help="Path to catalog of synthetic elements.")
+              help="Type of catalog")
 def get_optimal_coeffs(clf: ClfPreset, librate_list_paths: str, catalog: str):
     from resonancesml.commands.get_optimal_coeffs import get_optimal_coeffs
     get_optimal_coeffs(clf, librate_list_paths, catalog, [2,3,4,5])

@@ -4,7 +4,6 @@ from texttable import Texttable
 from typing import Dict
 from resonancesml.shortcuts import get_target_vector
 from resonancesml.shortcuts import get_feature_matrix
-from resonancesml.shortcuts import get_headers
 from resonancesml.loader import get_asteroids
 from .shortcuts import classify
 from pandas import DataFrame
@@ -57,7 +56,7 @@ class MethodComparer:
 
         data = []
         for indices in self._catalog_reader.indices_cases:
-            headers = get_headers(self._catalog_reader, indices)
+            headers = self._catalog_reader.get_headers(indices)
             X = get_feature_matrix(learn_feature_set, False, indices)
 
             for name in self._keys:
