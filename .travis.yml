@@ -31,6 +31,10 @@ script:
   - python -m resonancesml classify-all -l input/librations/first200_librated_asteroids_4_-2_-1 -a input/librations/all_librated_asteroids_4_-2_-1  -c syn --clf="KNN 0" --clf="DT 0" 2 3 5 > result.txt
   - diff result.txt ./functional-tests/classify-all/KNN-0_DT-0_200-2-3-5.txt
 
+  - python -m resonancesml clear-choose-clf -l input/librations/first50_librated_asteroids_4_-2_-1 -c syn -x 2.39 -s 0.01 -i 2
+  - python -m resonancesml clear-influence-fields -c syn --clf="DT 0" -l input/librations/first50_librated_asteroids_4_-2_-1 -x 2.39 -s 0.01 -i 2
+  - python -m resonancesml clear-classify-all -l input/librations/first50_librated_asteroids_4_-2_-1 -a input/librations/all_librated_asteroids_4_-2_-1  -c syn --clf="KNN 0" --clf="DT 0" -x 2.39 -s 0.01 -i 2 2 3 4 5
+
   - python -m resonancesml dump-config
 
 after_success:

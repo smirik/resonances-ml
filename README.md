@@ -54,6 +54,16 @@ python -m resonancesml choose-clf -c syn \
     -l input/librations/first50_librated_asteroids_4_-2_-1
 ```
 
+For filtering data before classification use `clear-choose-clf`
+
+Example:
+```
+python -m resonancesml choose-clf -c syn -x 2.39 -s 0.01 -i 2 \
+    -l input/librations/first50_librated_asteroids_4_-2_-1
+```
+where `-x` is value of resonant axis, `-s` possible axis variation, `-i` is
+order number of axis column in catalog.
+
 ### Influence fields
 
 For comparing significance of fields from catalog there is command `python -m
@@ -69,6 +79,16 @@ python -m resonancesml influence-fields -c syn --clf="DT 0" \
 ```
 Option `--clf` consist of short name of classifier and number of parameter preset. See `classifiers` section from configuration.
 The section field names are short names of all available classifiers in the application.
+
+For filtering data before classification use `clear-influence-fields`
+
+Example:
+```
+python -m resonancesml clear-influence-fields -c syn --clf="DT 0" -x 2.39 -s 0.01 -i 2 \
+    -l input/librations/first50_librated_asteroids_4_-2_-1
+```
+where `-x` is value of resonant axis, `-s` possible axis variation, `-i` is
+order number of axis column in catalog.
 
 ### Classification by all asteroids
 
@@ -90,6 +110,18 @@ Example:
 python -m resonancesml classify-all -l input/librations/first50_librated_asteroids_4_-2_-1 \
     -a input/librations/all_librated_asteroids_4_-2_-1 -c syn --clf="KNN 0" --clf="DT 0" 2 3 4 5
 ```
+
+For filtering data before classification use `clear-classify-all`.
+
+Example:
+```
+python -m resonancesml clear-classify-all -l input/librations/first50_librated_asteroids_4_-2_-1 \
+    -a input/librations/all_librated_asteroids_4_-2_-1 -c syn -x 2.39 -s 0.01 -i 2 \
+    --clf="KNN 0" --clf="DT 0" 2 3 4 5
+```
+where `-x` is value of resonant axis, `-s` possible axis variation, `-i` is
+order number of axis column in catalog.
+
 
 ### Grid search over parameters
 
