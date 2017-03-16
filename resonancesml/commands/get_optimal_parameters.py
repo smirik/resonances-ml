@@ -4,7 +4,6 @@ Module aims to get optimal parameters for different cases of feature set.
 from resonancesml.shortcuts import get_classifier_class
 from resonancesml.settings import params
 from resonancesml.report import view_for_total_comparing
-from collections import defaultdict
 from resonancesml.shortcuts import FAIL, ENDC, OK
 from resonancesml.reader import build_reader_for_grid
 import numpy as np
@@ -16,11 +15,20 @@ from itertools import product
 from .shortcuts import classify_as_dict
 
 
-def _get_config_parameters(clf_name: str) -> defaultdict:
+def _get_parameters_cases(of_classifier: str) -> dict:
     try:
-        param_grid = params()['grid_search'][clf_name]  # type: dict
+        param_grid = params()['grid_search'][of_classifier]['params']  # type: dict
     except KeyError:
-        print(FAIL, 'parameter ["classifiers"]["%s"] doesn\'t exist.' % clf_name, ENDC, sep='')
+        print(FAIL, 'parameter ["grid_search"]["%s"] doesn\'t exist.' % of_classifier, ENDC, sep='')
+        exit(-1)
+    return param_grid
+
+
+def _get_report_params(of_classifier: str) -> dict:
+    try:
+        param_grid = params()['grid_search'][of_classifier]['report_params']  # type: dict
+    except KeyError:
+        print(FAIL, 'parameter ["grid_search"]["%s"] doesn\'t exist.' % of_classifier, ENDC, sep='')
         exit(-1)
     return param_grid
 
@@ -33,7 +41,7 @@ class _CustomGridSearch(ASearcher):
         """
         super(_CustomGridSearch, self).__init__(verbose)
         self._classifier_cls = get_classifier_class(clf_name)
-        self._suggested_parameters = _get_config_parameters(clf_name)
+        self._suggested_parameters = _get_parameters_cases(clf_name)
         self._param_names = list(self._suggested_parameters.keys())
 
     def fit(self, features: np.ndarray, targets: np.ndarray) -> pd.DataFrame:
@@ -60,7 +68,7 @@ class _CustomGridSearch(ASearcher):
 HEADERS = ['a', 'e', 'sin I', 'n']
 
 
-REPORT_COLS = ['k', 'p', 'a', 'e', 'i', 'n', 'training set', 'TP', 'TN', 'FP', 'FN',
+REPORT_COLS = ['a', 'e', 'i', 'n', 'training set', 'TP', 'TN', 'FP', 'FN',
                'accuracy', 'precision', 'recall']
 
 
@@ -85,6 +93,7 @@ def get_optimal_parameters(clf_name: str, librate_list_paths: tuple, catalog: st
     :param librate_list: list of paths to files contains a couple of librated asteroids.
     :param catalog: path to catalog of synthetic elements or kepler elements
     """
+    report_params = _get_report_params(clf_name)
     filename = '%s_grid_search.csv' % clf_name
     total_data = None  # type: pd.DataFrame
     catalog_reader = build_reader_for_grid(Catalog(catalog), None)
@@ -99,5 +108,8 @@ def get_optimal_parameters(clf_name: str, librate_list_paths: tuple, catalog: st
                                               learning_set_builder, searcher)
             total_data = data if total_data is None else total_data.append(data)
 
-    view_for_total_comparing(total_data, filename, HEADERS, REPORT_COLS)
+    clf_params_for_report = sorted(report_params.values())
+    cols = list(clf_params_for_report)
+    total_data.rename(columns=report_params, inplace=True)
+    view_for_total_comparing(total_data, filename, HEADERS, cols + REPORT_COLS)
     print(OK, 'File %s is ready' % filename, ENDC, sep='')

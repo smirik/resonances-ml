@@ -84,9 +84,13 @@ grid_search:
       - [3, 4, 5]
       - [2, 3, 4, 5]
   KNN:
-    p: [1,2,3,4,5]
-    n_neighbors: [1,3,5,7,11,13,15,17,19,21]
-    weights: ['distance']
+    params:
+      p: [1,2,3,4,5]
+      n_neighbors: [1,3,5,7,11,13,15,17,19,21]
+      weights: ['distance']
+    report_params:
+      p: 'p'
+      n_neighbors: 'k'
 
 influence:
   synthetic: [[2,3,4],[2,3,5],[2,4,5],[3,4,5],[2,5]]
