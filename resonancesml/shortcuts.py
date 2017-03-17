@@ -63,7 +63,7 @@ def get_target_vector(from_asteroids: np.ndarray, by_features: np.ndarray) -> np
 
 def get_feature_matrix(from_features: np.ndarray, scale: bool, indices: List[int]) -> np.ndarray:
     dtype = np.float64  # pylint: disable=no-member
-    res = np.array(from_features[: ,indices], dtype=dtype)  # type: np.ndarray
+    res = np.array(from_features[:, indices], dtype=dtype)  # type: np.ndarray
     if scale:
         scaler = StandardScaler()
         res = scaler.fit_transform(res)

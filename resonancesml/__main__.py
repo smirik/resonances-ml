@@ -20,8 +20,8 @@ _CATALOG_HELP = (
 )
 
 _TEST_CLF_HELP = ('Classifier preset. Example: "KNN 0". ' +
-                 'Presets are available in config, section "classifiers". ' +
-                 'Make python -m resonancesml dump_config to see default configuration.')
+                  'Presets are available in config, section "classifiers". ' +
+                  'Make python -m resonancesml dump_config to see default configuration.')
 
 
 _CHOOSE_CLF_HELP = (
@@ -57,7 +57,7 @@ DEFAULT_LIBRATION_LIST = opjoin(PROJECT_DIR, 'input', 'librations',
 def _learn_options():
     return _unite_decorators(
         click.option('--librate-list', '-l', type=click.Path(exists=True, resolve_path=True),
-                      default=DEFAULT_LIBRATION_LIST, show_default=True),
+                     default=DEFAULT_LIBRATION_LIST, show_default=True),
         click.option('--catalog', '-c', type=click.Choice([x.name for x in Catalog]),
                      help=_CATALOG_HELP, show_default=True),
     )
@@ -66,7 +66,7 @@ def _learn_options():
 def _classify_all_opts():
     return _unite_decorators(
         click.option('--all-librated', '-a', type=click.Path(exists=True, resolve_path=True),
-                      help='File with librated asteroids used for checking.'),
+                     help='File with librated asteroids used for checking.'),
         click.option('--clf', 'clf_presets', type=ClassifierPreset(),
                      help=_TEST_CLF_HELP, multiple=True),
         click.option('--verbose', '-v', type=int, count=True),
@@ -151,7 +151,7 @@ _CLEAR_HELP_TEMPLATE = 'Does same as %s, but filters asteroids by axis.'
 @_clear_opts()
 @click.argument('fields', nargs=-1)
 def clear_choose_clf(librate_list: str, catalog: str, fields: tuple,
-                resonant_axis: float, axis_swing: float, axis_index: int):
+                     resonant_axis: float, axis_swing: float, axis_index: int):
     from resonancesml.commands.learn import MethodComparer
     from resonancesml.reader import build_reader
     injection, _catalog = _get_injection_and_catalog(catalog, resonant_axis, axis_swing, axis_index)
@@ -160,7 +160,6 @@ def clear_choose_clf(librate_list: str, catalog: str, fields: tuple,
     tester = MethodComparer(librate_list, parameters)
     tester.set_methods(*(_get_classifiers()))
     tester.learn()
-
 
 
 _CLASSIFY_ALL = (
@@ -213,7 +212,7 @@ def influence_fields(librate_list: str, catalog: str, clf: ClfPreset):
     from resonancesml.reader import build_reader_for_influence
 
     catalog_reader = build_reader_for_influence(Catalog(catalog), None)
-    classifiers = { clf[0]: get_classifier(clf) }
+    classifiers = {clf[0]: get_classifier(clf)}
     tester = MethodComparer(librate_list, catalog_reader)
     tester.set_methods(classifiers, [clf[0]])
     tester.learn()
@@ -228,7 +227,7 @@ def clear_influence_fields(librate_list: str, catalog: str, clf: ClfPreset,
     from resonancesml.reader import build_reader_for_influence
     injection, _catalog = _get_injection_and_catalog(catalog, resonant_axis, axis_swing, axis_index)
     catalog_reader = build_reader_for_influence(Catalog(catalog), injection)
-    classifiers = { clf[0]: get_classifier(clf) }
+    classifiers = {clf[0]: get_classifier(clf)}
     tester = MethodComparer(librate_list, catalog_reader)
     tester.set_methods(classifiers, [clf[0]])
     tester.learn()
@@ -250,7 +249,9 @@ SYN_S = 7
 FILTER_NOISE_HELP = ('Removes non-resonance asteroids have axis lesser ' +
                      'than resonance asteroids from learning set.')
 
-def data_options(helps: Dict[str, str] = {}):
+
+def data_options(helps: Dict[str, str]={}):
+    remove_cache_help = 'This commands build cache in /tmp/cache.txt. Up this flag to delete cache.'
     return _unite_decorators(
         click.option('--train-length', '-n', type=int, help=helps.get('tl', '')),
         click.option('--data-length', '-l', type=int,
@@ -263,11 +264,10 @@ def data_options(helps: Dict[str, str] = {}):
                      show_default=True),
         click.option('--librations-folder', '-f', type=click.Path(resolve_path=True, exists=True),
                      multiple=True, default=[opjoin(PROJECT_DIR, 'input', 'librations', '4J-2S-1')],
-                    show_default=True),
+                     show_default=True),
         click.option('--catalog', '-c', type=click.Choice([x.name for x in Catalog]), default='syn',
-                    help=_CATALOG_HELP, show_default=True),
-        click.option('--remove-cache', '-r', type=bool, is_flag=True,
-                     help='This commands build cache in /tmp/cache.txt. Up this flag to delete cache.'),
+                     help=_CATALOG_HELP, show_default=True),
+        click.option('--remove-cache', '-r', type=bool, is_flag=True, help=remove_cache_help),
         click.option('--verbose', '-v', count=True),
     )
 
@@ -384,7 +384,7 @@ def get_optimal_parameters(clf: str, librate_list_paths: tuple, catalog: str):
               help="Type of catalog")
 def get_optimal_coeffs(clf: ClfPreset, librate_list_paths: str, catalog: str):
     from resonancesml.commands.get_optimal_coeffs import get_optimal_coeffs
-    get_optimal_coeffs(clf, librate_list_paths, catalog, [2,3,4,5])
+    get_optimal_coeffs(clf, librate_list_paths, catalog, [2, 3, 4, 5])
 
 
 if __name__ == '__main__':

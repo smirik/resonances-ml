@@ -93,7 +93,8 @@ class DatasetBuilder(object):
             for i in range(X_train):
                 concatenation_integers = self._learnset[i][-3]
                 resonance_axis = self._resonance_axes[concatenation_integers]
-                X_train[i][-1] = np.power(X_train[i][0] - resonance_axis, 2)  # pylint: disable=no-member
+                diffs = X_train[i][0] - resonance_axis
+                X_train[i][-1] = np.power(diffs, 2)  # pylint: disable=no-member
         return X_train, X_test, Y_train, Y_test
 
 
@@ -142,7 +143,7 @@ def _serialize_integers(dataset: np.ndarray) -> np.ndarray:
     dataset = np.hstack((dataset, serialized_resonances))
     for _ in range(INTEGERS_COUNT):
         dataset = np.delete(dataset, -4, 1)
-    dataset[:,[-2,-1]] = dataset[:,[-1,-2]]
+    dataset[:, [-2, -1]] = dataset[:, [-1, -2]]
     return dataset
 
 
@@ -200,8 +201,9 @@ def _update_feature_matrix(of_dataset: np.ndarray, by_libration_counters: Dict[s
             continue
         resonance_view_vector[resonance_indices] = resonance_view.ratio
 
-    of_dataset = np.hstack((of_dataset, np.array([resonance_view_vector]).T))  # pylint: disable=no-member
-    of_dataset[:,[integers_index, target_index]] = of_dataset[:,[target_index, integers_index]]
+    resonance_view_vector_T = np.array([resonance_view_vector]).T  # pylint: disable=no-member
+    of_dataset = np.hstack((of_dataset, resonance_view_vector_T))
+    of_dataset[:, [integers_index, target_index]] = of_dataset[:, [target_index, integers_index]]
     return of_dataset
 
 
@@ -221,9 +223,10 @@ def _filter_noises(dataset: np.ndarray, libration_views: Dict[str, float],
         is_target_false = resonance_dataset[:, -1] == 0
 
         max_diff = np.max(resonance_dataset[np.where(is_target_true)][:, AXIS_OFFSET_INDEX])
-        suitable_objs = resonance_dataset[np.where(
-            ((is_target_false & (resonance_dataset[:, AXIS_OFFSET_INDEX] > max_diff)) | is_target_true)
-        )]
+        axis_mask = resonance_dataset[:, AXIS_OFFSET_INDEX] > max_diff
+        suitable_objs = resonance_dataset[np.where((
+            (is_target_false & axis_mask) | is_target_true
+        ))]
 
         if verbose:
             print("%s: %s -> %s" % (key, dataset[np.where(current_resonance)].shape[0],
@@ -354,9 +357,9 @@ class TargetVectorBuilder:
             res = np.vstack((res, dataset))
 
         res = np.delete(res, 0, 0)
-        sorted_res = res[res[:,0].argsort()]
-        #np.savetxt(cache_filepath, sorted_res,
-                   #fmt='%d %f %f %f %f %.18e %.18e %.18e %.18e %d %f %d %d %d %f %d')
+        sorted_res = res[res[:, 0].argsort()]
+        # fmt = '%d %f %f %f %f %.18e %.18e %.18e %.18e %d %f %d %d %d %f %d'
+        # np.savetxt(cache_filepath, sorted_res,fmt=fmt)
         return sorted_res[:self._data_len]
 
 

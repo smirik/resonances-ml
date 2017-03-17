@@ -41,7 +41,6 @@ class _DataLockAdapter(object):
         return self._data[index]
 
 
-
 class _CoeffitientsSearcher(ASearcher):
     """
     Aims to search optimal coeffitients of features for pointed classifier
@@ -63,10 +62,10 @@ class _CoeffitientsSearcher(ASearcher):
         returns scores of metrics.
         """
         mutable_features = features.copy()
-        mutable_features[:,0] *= coeffs['ka']
-        mutable_features[:,1] *= coeffs['ke']
-        mutable_features[:,2] *= coeffs['ki']
-        mutable_features[:,3] *= coeffs['kn']
+        mutable_features[:, 0] *= coeffs['ka']
+        mutable_features[:, 1] *= coeffs['ke']
+        mutable_features[:, 2] *= coeffs['ki']
+        mutable_features[:, 3] *= coeffs['kn']
         cv = self._build_cv(targets.shape[0])
         clf_copy = sklearn_clone(self._clf)
         scores = classify_as_dict(clf_copy, cv, mutable_features, targets)

@@ -58,4 +58,3 @@ def builder_gen(builder_kit: ABuilderKit, matrix_path: str, librations_folders: 
         builder = builder_kit.create(dataset)
         builder.set_resonaces_axes(features_builder.resonance_axes)
         yield folder, builder, catalog_reader
-

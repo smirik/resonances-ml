@@ -118,7 +118,8 @@ def _get_datasets(librate_list: str, all_librated: str, catalog_reader: CatalogR
 
 def _build_table() -> Texttable:
     table = Texttable(max_width=120)
-    table.header(['Classifier', 'indices', 'precision', 'recall', 'accuracy', 'TP', 'FP', 'TN', 'FN'])
+    table.header(['Classifier', 'indices', 'precision', 'recall', 'accuracy',
+                  'TP', 'FP', 'TN', 'FN'])
     table.set_cols_width([20, 8, 11, 11, 11, 7, 7, 7, 7])
     table.set_precision(5)
     return table
@@ -175,7 +176,7 @@ def _classify_all(datasets: _DataSets, catalog_reader: CatalogReader,
 
     print('\n')
     print(table.draw())
-    print('Amount of resonant asteroids in learning dataset %i' % Y[Y==1].shape[0])
+    print('Amount of resonant asteroids in learning dataset %i' % Y[Y == 1].shape[0])
     print('Learning dataset shape %i' % datasets.learn_feature_set.shape[0])
     print('Total amount of asteroids %i' % (datasets.learn_feature_set.shape[0] +
                                             datasets.test_feature_set.shape[0]))
@@ -233,9 +234,12 @@ def classify_all(librate_list: str, all_librated: str, catalog_reader: CatalogRe
     res = _classify_all(datasets, catalog_reader, clf_presets, verbose)
 
     for name, result in res.items():
-        numbers_int = np.array([datasets.test_feature_set[:, 0].astype(int)]).T  # pylint: disable=no-member
+        numbers_int = np.array([  # pylint: disable=no-member
+            datasets.test_feature_set[:, 0].astype(int)
+        ]).T  # pylint: disable=no-member
         all_objects = np.hstack((
-            numbers_int, datasets.test_feature_set, np.array([result.predictions]).T  # pylint: disable=no-member
+            numbers_int, datasets.test_feature_set,
+            np.array([result.predictions]).T  # pylint: disable=no-member
         ))
 
         predicted_objects = all_objects[np.where(all_objects[:, -1] == 1)]
@@ -256,5 +260,6 @@ def classify_all(librate_list: str, all_librated: str, catalog_reader: CatalogRe
             fd.write('Predicted asteroids after 249567:\n%s\n' % ','.join(new_predicted_asteroids))
             fd.write('FP:\n%s\n' % ','.join(predicted_objects_FP))
             fd.write('FN:\n%s\n' % ','.join(predicted_objects_FN))
-            fd.write('Asteroids was found by integration: %s\n' % datasets.all_librated_asteroids.shape[0])
+            fd.write('Asteroids was found by integration: %s\n' %
+                     datasets.all_librated_asteroids.shape[0])
             fd.write('Asteroids was found by ML: %s' % predicted_objects.shape[0])

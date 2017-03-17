@@ -59,4 +59,3 @@ def plot(feature_matrix: np.ndarray, target_vector: np.ndarray, folder: str,
         if plot_title:
             plt.title(plot_title)
         plt.savefig(os.path.join(path, filename), bbox_inches='tight')
-
