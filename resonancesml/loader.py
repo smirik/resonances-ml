@@ -20,8 +20,11 @@ def get_learn_set(from_catalog_features: np.ndarray, to_asteroid_number: str) ->
     asteroids_numbers = from_catalog_features[:, 0]
     mask = np.where(asteroids_numbers == to_asteroid_number)
     if mask[0].shape[0] == 0:
-        print('%sAsteroid %s not in filtered catalog. Probably this asteroid has unsuitable axis %s' %
-              (FAIL, to_asteroid_number, ENDC))
+        print(
+            ('%sAsteroid %s not in filtered catalog. ' +
+             'Probably this asteroid has unsuitable axis %s') %
+            (FAIL, to_asteroid_number, ENDC)
+        )
 
         asteroids_numbers = from_catalog_features[:, 0].astype(int)
         less_suggested_asteroid = asteroids_numbers[np.where(

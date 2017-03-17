@@ -9,7 +9,6 @@ class ADatasetInjection(object):
         super(ADatasetInjection, self).__init__()
         self.headers = headers
 
-
     @abstractclassmethod
     def update_data(self, X: np.ndarray) -> np.ndarray:
         pass
@@ -17,14 +16,15 @@ class ADatasetInjection(object):
 
 class KeplerInjection(ADatasetInjection):
     def update_data(self, X: np.ndarray) -> np.ndarray:
-        axes = np.array(X[:,2], dtype='float64')
+        axes = np.array(X[:, 2], dtype='float64')
         mean_motions = np.sqrt([0.0002959122082855911025 / axes ** 3.])
         X = np.hstack((X, mean_motions.T))
         return X
 
 
 class _DataFilter(ADatasetInjection):
-    def __init__(self, headers: List[str], resonant_axis: float, axis_swing: float, axis_index: int):
+    def __init__(self, headers: List[str], resonant_axis: float,
+                 axis_swing: float, axis_index: int):
         super(_DataFilter, self).__init__(headers)
         self.axis_swing = axis_swing
         self.axis_index = axis_index
@@ -66,5 +66,3 @@ class ClearKeplerInjection(KeplerInjection):
     def update_data(self, X: np.ndarray) -> np.ndarray:
         X = super(ClearKeplerInjection, self).update_data(X)
         return X
-
-

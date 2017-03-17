@@ -49,7 +49,7 @@ def builder_gen(builder_kit: ABuilderKit, matrix_path: str, librations_folders: 
         features_builder = TargetVectorBuilder(matrix_path, catalog.axis_index, folder,
                                                remove_cache)
         catalog_reader = build_reader(catalog, None, [fields])
-        catalog_data = catalog_reader.read().values
+        catalog_data = catalog_reader.read().values  # pylint: disable=no-member
         dataset = features_builder.update_data(catalog_data)
         if not dataset.shape[0]:
             print('%sThere is no object%s' % (FAIL, ENDC))
@@ -58,4 +58,3 @@ def builder_gen(builder_kit: ABuilderKit, matrix_path: str, librations_folders: 
         builder = builder_kit.create(dataset)
         builder.set_resonaces_axes(features_builder.resonance_axes)
         yield folder, builder, catalog_reader
-
