@@ -18,8 +18,8 @@ def get_asteroids(from_filename: str, possible_asteroids: np.ndarray) -> np.ndar
 
 def get_learn_set(from_catalog_features: np.ndarray, to_asteroid_number: str) -> np.ndarray:
     asteroids_numbers = from_catalog_features[:, 0]
-    data = np.where(asteroids_numbers == to_asteroid_number)
-    if data[0].shape[0] == 0:
+    mask = np.where(asteroids_numbers == to_asteroid_number)
+    if mask[0].shape[0] == 0:
         print('%sAsteroid %s not in filtered catalog. Probably this asteroid has unsuitable axis %s' %
               (FAIL, to_asteroid_number, ENDC))
 
@@ -30,5 +30,6 @@ def get_learn_set(from_catalog_features: np.ndarray, to_asteroid_number: str) ->
             asteroids_numbers > int(to_asteroid_number))][0]
         print('Try to use -n %i or -n %i' % (less_suggested_asteroid, greater_suggested_asteroid))
         exit(-1)
-    slice_len = data[0][0] + 1
+    last_asteroid_count_num = mask[0][0]
+    slice_len = last_asteroid_count_num + 1
     return from_catalog_features[:slice_len]

@@ -16,10 +16,10 @@ def plot(feature_matrix: np.ndarray, target_vector: np.ndarray, folder: str,
     When container with reorganized features is ready, plot takes enumeration
     of pairs of feature vectors without repetitions.
     """
-    true_cond = np.where(target_vector == 1)
-    false_cond = np.where(target_vector != 1)
-    true_class = feature_matrix[true_cond]
-    false_class = feature_matrix[false_cond]
+    true_class_mask = np.where(target_vector == 1)
+    false_class_mask = np.where(target_vector != 1)
+    true_class = feature_matrix[true_class_mask]
+    false_class = feature_matrix[false_class_mask]
 
     ecc1 = true_class[:, 1]
     ecc2 = false_class[:, 1]
