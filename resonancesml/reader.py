@@ -111,7 +111,7 @@ class CatalogException(Exception):
     def __init__(self, message = None):
         if not message:
             message = 'Unsupported catalog type'
-        super(Exception, self).__init__(message)
+        super(CatalogException, self).__init__(message)
 
 
 def get_injection(by_catalog: Catalog) -> ADatasetInjection:

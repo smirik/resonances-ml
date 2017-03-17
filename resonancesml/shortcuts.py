@@ -57,11 +57,13 @@ def get_target_vector(from_asteroids: np.ndarray, by_features: np.ndarray) -> np
     target_vector = []
     for i, asteroid_number in enumerate(by_features[:, 0]):
         target_vector.append(asteroid_number in from_asteroids)
-    return np.array(target_vector, dtype=np.float64)
+    dtype = np.float64  # pylint: disable=no-member
+    return np.array(target_vector, dtype=dtype)
 
 
 def get_feature_matrix(from_features: np.ndarray, scale: bool, indices: List[int]) -> np.ndarray:
-    res = np.array(from_features[: ,indices], dtype=np.float64)  # type: np.ndarray
+    dtype = np.float64  # pylint: disable=no-member
+    res = np.array(from_features[: ,indices], dtype=dtype)  # type: np.ndarray
     if scale:
         scaler = StandardScaler()
         res = scaler.fit_transform(res)

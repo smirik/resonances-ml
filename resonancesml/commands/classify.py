@@ -233,9 +233,9 @@ def classify_all(librate_list: str, all_librated: str, catalog_reader: CatalogRe
     res = _classify_all(datasets, catalog_reader, clf_presets, verbose)
 
     for name, result in res.items():
-        numbers_int = np.array([datasets.test_feature_set[:, 0].astype(int)]).T
+        numbers_int = np.array([datasets.test_feature_set[:, 0].astype(int)]).T  # pylint: disable=no-member
         all_objects = np.hstack((
-            numbers_int, datasets.test_feature_set, np.array([result.predictions]).T
+            numbers_int, datasets.test_feature_set, np.array([result.predictions]).T  # pylint: disable=no-member
         ))
 
         predicted_objects = all_objects[np.where(all_objects[:, -1] == 1)]

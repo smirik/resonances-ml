@@ -388,4 +388,4 @@ def get_optimal_coeffs(clf: ClfPreset, librate_list_paths: str, catalog: str):
 
 
 if __name__ == '__main__':
-    main()
+    main()  # pylint: disable=no-value-for-parameter

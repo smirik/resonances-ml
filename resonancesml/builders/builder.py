@@ -78,6 +78,7 @@ class DatasetBuilder(object):
 
     def build(self, column_indices: List[int])\
             -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+        # pylint: disable=unsubscriptable-object
         assert column_indices
         self._learnset, self._testset = self._build_datasets()
 
@@ -92,7 +93,7 @@ class DatasetBuilder(object):
             for i in range(X_train):
                 concatenation_integers = self._learnset[i][-3]
                 resonance_axis = self._resonance_axes[concatenation_integers]
-                X_train[i][-1] = np.power(X_train[i][0] - resonance_axis, 2)
+                X_train[i][-1] = np.power(X_train[i][0] - resonance_axis, 2)  # pylint: disable=no-member
         return X_train, X_test, Y_train, Y_test
 
 
@@ -135,9 +136,10 @@ def separate_dataset(indices: List[int], dataset: np.ndarray) -> Tuple[np.ndarra
 
 def _serialize_integers(dataset: np.ndarray) -> np.ndarray:
     integers_matrix = dataset[:, INTEGERS_START_INDEX:INTEGERS_START_INDEX + INTEGERS_COUNT]
-    serialized_resonances = np.array(['_'.join(x) for x in integers_matrix.astype(str)])
+    serialized_resonances = ['_'.join(x) for x in integers_matrix.astype(str)]
+    serialized_resonances = np.transpose(np.array([serialized_resonances]))
     dataset = dataset.astype(object)
-    dataset = np.hstack((dataset, np.array([serialized_resonances]).T))
+    dataset = np.hstack((dataset, serialized_resonances))
     for _ in range(INTEGERS_COUNT):
         dataset = np.delete(dataset, -4, 1)
     dataset[:,[-2,-1]] = dataset[:,[-1,-2]]
@@ -162,10 +164,11 @@ def _progress(items: Iterable, items_size: int, title: str):
 
 
 def _get_librations_ratios(dataset: np.ndarray, verbose: bool = False) -> Dict[str, _ResonanceView]:
-    resonances = np.unique(dataset[:, -2])
+    resonances = np.unique(dataset[:, -2])  # type: np.ndarray
     resonance_librations_ratio = {x: 0 for x in resonances}
     if verbose:
-        resonances = _progress(resonances, resonances.shape[0], 'Getting additional features')
+        resonances = _progress(resonances, resonances.shape[0],  # pylint: disable=no-member
+                               'Getting additional features')
 
     for resonance in resonances:
         resonance_condition = dataset[:, -2] == resonance
@@ -197,7 +200,7 @@ def _update_feature_matrix(of_dataset: np.ndarray, by_libration_counters: Dict[s
             continue
         resonance_view_vector[resonance_indices] = resonance_view.ratio
 
-    of_dataset = np.hstack((of_dataset, np.array([resonance_view_vector]).T))
+    of_dataset = np.hstack((of_dataset, np.array([resonance_view_vector]).T))  # pylint: disable=no-member
     of_dataset[:,[integers_index, target_index]] = of_dataset[:,[target_index, integers_index]]
     return of_dataset
 
@@ -278,8 +281,8 @@ class TargetVectorBuilder:
     def _get_axis_diffs(self, for_feature_matrix: np.ndarray, for_resonant_axis: float)\
             -> np.ndarray:
         axis_diffs = for_feature_matrix[:, self._axis_index] - for_resonant_axis
-        axis_diffs = np.power(axis_diffs, 2)
-        axis_diffs = np.array([axis_diffs]).T
+        axis_diffs = np.power(axis_diffs, 2)  # pylint: disable=no-member
+        axis_diffs = np.array([axis_diffs]).T  # pylint: disable=no-member
         return axis_diffs
 
     def _get_resonance_dataset(self, for_feature_matrix: np.ndarray,
@@ -303,7 +306,7 @@ class TargetVectorBuilder:
 
         dataset = np.hstack((
             for_feature_matrix,
-            np.array([mean_motion_vec]).T,
+            np.array([mean_motion_vec]).T,  # pylint: disable=no-member
             integers,
             axis_diffs,
         ))
@@ -347,7 +350,7 @@ class TargetVectorBuilder:
 
             dataset = self._get_resonance_dataset(feature_matrix, resonance)
             Y = get_target_vector(librating_asteroid_vector, feature_matrix.astype(int))
-            dataset = np.hstack((dataset, np.array([Y]).T))
+            dataset = np.hstack((dataset, np.array([Y]).T))  # pylint: disable=no-member
             res = np.vstack((res, dataset))
 
         res = np.delete(res, 0, 0)
