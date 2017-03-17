@@ -1,6 +1,7 @@
 from typing import List
 import pandas as pd
 
+
 def view_for_total_comparing(total_data: pd.DataFrame, filepath, bool_headers: List, cols=None):
     for element_header in bool_headers:
         total_data[element_header].replace(True, '+', inplace=True)

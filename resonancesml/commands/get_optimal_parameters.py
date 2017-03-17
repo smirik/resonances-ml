@@ -13,6 +13,7 @@ from resonancesml.reader import Catalog
 from resonancesml.searcher import ASearcher
 from itertools import product
 from .shortcuts import classify_as_dict
+from .shortcuts import Modifier
 
 
 def _get_parameters_cases(of_classifier: str) -> dict:
@@ -43,6 +44,15 @@ class _CustomGridSearch(ASearcher):
         self._classifier_cls = get_classifier_class(clf_name)
         self._suggested_parameters = _get_parameters_cases(clf_name)
         self._param_names = list(self._suggested_parameters.keys())
+        self._trainset_modifier = None  # type: Modifier
+
+    @property
+    def trainset_modifier(self) -> Modifier:
+        return self._trainset_modifier
+
+    @trainset_modifier.setter
+    def trainset_modifier(self, method: Modifier):
+        self._trainset_modifier = method
 
     def fit(self, features: np.ndarray, targets: np.ndarray) -> pd.DataFrame:
         product_gen = product(*[x for x in self._suggested_parameters.values()])
@@ -56,7 +66,7 @@ class _CustomGridSearch(ASearcher):
                 print(classifier_params)
             cv = self._build_cv(targets.shape[0])
             clf = self._classifier_cls(**classifier_params)
-            scores = classify_as_dict(clf, cv, features, targets)
+            scores = classify_as_dict(clf, cv, features, targets, self.trainset_modifier)
             scores.update(classifier_params)
             data.append(scores)
 

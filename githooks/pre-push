@@ -1,0 +1,25 @@
+#!/bin/sh
+
+echo "Search debug code..."
+FILES_PATTERN='\.py(\..+)?$'
+FORBIDDEN_PATTERN='^[^#]*pdb.set_trace()'
+git diff --cached --name-only | \
+    grep -E $FILES_PATTERN | \
+    GREP_COLOR='4;5;37;41' xargs grep --color --with-filename -n \
+    -e $FORBIDDEN_PATTERN && echo 'COMMIT REJECTED Found "pdb.set_trace()" references. Please remove them before commiting'
+RETVAL=$?
+
+echo "PyLint checks..."
+pylint -j4 -E `git ls | grep py$ | grep -v --regexp="\(setup\.py\)"` #--disable=E1136 --disable=E1126 --disable=no-self-argument\
+PYLINTVAL=$?
+
+echo "PEP8 check..."
+pep8 `git ls-files | grep -e 'py$' | grep -e '^resonancesml'`
+PEP8VAL=$?
+
+if [ $RETVAL -eq 0 -o $PYLINTVAL -ne 0 -o $PEP8VAL -ne 0 ]
+then
+    exit 1
+else
+    exit 0
+fi

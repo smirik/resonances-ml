@@ -108,10 +108,10 @@ class CatalogReader:
 
 
 class CatalogException(Exception):
-    def __init__(self, message = None):
+    def __init__(self, message=None):
         if not message:
             message = 'Unsupported catalog type'
-        super(Exception, self).__init__(message)
+        super(CatalogException, self).__init__(message)
 
 
 def get_injection(by_catalog: Catalog) -> ADatasetInjection:
@@ -127,7 +127,7 @@ def get_injection(by_catalog: Catalog) -> ADatasetInjection:
 def build_reader(for_catalog: Catalog, injection: ADatasetInjection,
                  indices: List[List[int]] = None) -> CatalogReader:
     if for_catalog == Catalog.syn:
-        return CatalogReader([[2,3,4,5],[2,3,5]] if not indices else indices,
+        return CatalogReader([[2, 3, 4, 5], [2, 3, 5]] if not indices else indices,
                              SYN_CATALOG_PATH, 10, '  ', 2, injection, 406253)
     elif for_catalog == Catalog.cat:
         return CatalogReader([[2, 3, 10], [2, 3, 4, 10]] if not indices else indices,

@@ -2,7 +2,7 @@ from typing import Tuple
 import numpy as np
 from sklearn.base import ClassifierMixin
 from sklearn.cross_validation import KFold
-
+from typing import Callable
 
 
 def perf_measure(y_actual, y_hat):
@@ -18,7 +18,11 @@ def perf_measure(y_actual, y_hat):
     return (TP, FP, TN, FN)
 
 
-def classify(clf: ClassifierMixin, kf: KFold, X: np.ndarray, Y: np.ndarray)\
+Modifier = Callable[[np.ndarray, np.ndarray], Tuple[np.ndarray, np.ndarray]]
+
+
+def classify(clf: ClassifierMixin, kf: KFold, X: np.ndarray, Y: np.ndarray,
+             trainset_modifier: Modifier = None)\
         -> Tuple[float, float, float, int, int, int, int]:
     precisions = []
     recalls = []
@@ -31,6 +35,8 @@ def classify(clf: ClassifierMixin, kf: KFold, X: np.ndarray, Y: np.ndarray)\
     for train_index, test_index in kf:
         X_train = X[train_index]
         Y_train = Y[train_index]
+        if trainset_modifier:
+            X_train, Y_train = trainset_modifier(X_train, Y_train)
         X_test = X[test_index]
         Y_test = Y[test_index]
 
@@ -51,8 +57,10 @@ def classify(clf: ClassifierMixin, kf: KFold, X: np.ndarray, Y: np.ndarray)\
             np.sum(TPs), np.sum(FPs), np.sum(TNs), np.sum(FNs))
 
 
-def classify_as_dict(clf: ClassifierMixin, kf: KFold, X: np.ndarray, Y: np.ndarray) -> dict:
-    precision, recall, accuracy, TP, FP, TN, FN = classify(clf, kf, X, Y)
+def classify_as_dict(clf: ClassifierMixin, kf: KFold, features: np.ndarray, targets: np.ndarray,
+                     trainset_modifier: Modifier = None) -> dict:
+    precision, recall, accuracy, TP, FP, TN, FN = classify(
+        clf, kf, features, targets, trainset_modifier)
     scores = {
         'precision': precision,
         'recall': recall,
