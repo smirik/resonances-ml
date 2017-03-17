@@ -119,6 +119,8 @@ def get_injection(by_catalog: Catalog) -> ADatasetInjection:
         return None
     elif by_catalog == by_catalog.cat:
         return KeplerInjection(['n'])
+    elif by_catalog == by_catalog.pro:
+        return None
     raise CatalogException()
 
 

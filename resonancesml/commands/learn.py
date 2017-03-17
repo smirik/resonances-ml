@@ -48,8 +48,8 @@ class MethodComparer:
         table.set_cols_width([30, 30, 15, 15, 15, 5, 5, 5, 5])
         table.set_precision(5)
 
-        bar = ProgressBar(len(self._catalog_reader.indices_cases) * len(self._classifiers), 80,
-                          'Learning')
+        progress_bar_len = len(self._catalog_reader.indices_cases) * len(self._classifiers)
+        bar = ProgressBar(progress_bar_len, 80, 'Learning')
         if self._catalog_reader.injection:
             learn_feature_set = self._catalog_reader.injection.update_data(learn_feature_set)
         Y = get_target_vector(self._librated_asteroids, learn_feature_set.astype(int))
