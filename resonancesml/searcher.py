@@ -2,6 +2,7 @@ from abc import abstractmethod
 import numpy as np
 import pandas as pd
 from sklearn.cross_validation import KFold
+from resonancesml.settings import params
 
 
 class ASearcher(object):
@@ -19,6 +20,7 @@ class ASearcher(object):
 
     def __init__(self, verbose=False):
         self._verbose = verbose
+        self._worker_number = params()['system']['threads']
 
     @abstractmethod
     def fit(self, features: np.ndarray, targets: np.ndarray) -> pd.DataFrame:

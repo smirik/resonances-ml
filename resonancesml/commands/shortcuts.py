@@ -3,6 +3,7 @@ import numpy as np
 from sklearn.base import ClassifierMixin
 from sklearn.cross_validation import KFold
 from typing import Callable
+from threading import Lock
 
 
 def perf_measure(y_actual, y_hat):
@@ -71,3 +72,27 @@ def classify_as_dict(clf: ClassifierMixin, kf: KFold, features: np.ndarray, targ
         'FN': FN,
     }
     return scores
+
+
+class DataLockAdapter(object):
+    """
+    Adapter for list aims to locking it for appending.
+    """
+    def __init__(self):
+        self._lock = Lock()
+        self._data = []
+
+    def append(self, value):
+        self._lock.acquire()
+        self._data.append(value)
+        self._lock.release()
+
+    @property
+    def data(self) -> list:
+        return self._data
+
+    def __len__(self) -> int:
+        return len(self._data)
+
+    def __getitem__(self, index):
+        return self._data[index]
