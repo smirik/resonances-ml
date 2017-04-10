@@ -83,14 +83,28 @@ grid_search:
       - [2, 4, 5]
       - [3, 4, 5]
       - [2, 3, 4, 5]
-  KNN:
-    params:
-      p: [1,2,3,4,5]
-      n_neighbors: [1,3,5,7,11,13,15,17,19,21]
-      weights: ['distance']
-    report_params:
-      p: 'p'
-      n_neighbors: 'k'
+  classifiers:
+    KNN:
+      params:
+        p: [1,2]
+        n_neighbors: [1,3]
+        weights: ['distance']
+      report_params:
+        p: 'p'
+        n_neighbors: 'k'
+  samplers:
+    smote:
+      params:
+        k: [5, 11, 21]
+        ratio: [0.99]
+      report_params:
+        k: 'smote_k'
+        ratio: 'smote_ratio'
+    oversampler:
+      params:
+        count: [100, 500, 1000, 2000]
+      report_params:
+        count: 'oversampler_count'
 
 influence:
   synthetic: [[2,3,4],[2,3,5],[2,4,5],[3,4,5],[2,5]]

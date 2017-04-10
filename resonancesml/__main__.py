@@ -353,8 +353,12 @@ _GET_OPTIMAL_PARAMETERS_HELP = (
 
 
 _GET_OPTIMAL_PARAMETERS_CLF_HELP = (
-    'Classifer shortname. Available classifiers are in section "grid_search".' +
+    'Classifer shortname. Available classifiers are in section "grid_search" -> "classifiers".' +
     'This section is extendable by classifers from "classifers" section.'
+)
+
+_GET_OPTIMAL_PARAMETERS_SAMPLER_HELP = (
+    'Classifer shortname. Available classifiers are in section "grid_search" -> "samplers".'
 )
 
 
@@ -364,11 +368,14 @@ _GET_OPTIMAL_PARAMETERS_CLF_HELP = (
               type=click.Path(exists=True, resolve_path=True),
               default=(DEFAULT_LIBRATION_LIST,), show_default=True, multiple=True,
               help='Path to file with librated asteroids.')
+@click.option('--verbose', '-v', type=int, count=True)
 @click.option('--catalog', '-c', type=click.Choice([x.name for x in Catalog]),
               help="Path to catalog of synthetic elements.")
-def get_optimal_parameters(clf: str, librate_list_paths: tuple, catalog: str):
+@click.option('--sampler', '-s', type=str, help=_GET_OPTIMAL_PARAMETERS_SAMPLER_HELP)
+def get_optimal_parameters(clf: str, librate_list_paths: tuple,
+                           catalog: str, verbose: int, sampler: str):
     from resonancesml.commands.get_optimal_parameters import get_optimal_parameters
-    get_optimal_parameters(clf, librate_list_paths, catalog)
+    get_optimal_parameters(clf, librate_list_paths, catalog, verbose, sampler)
 
 
 @main.command(help='Makes grid_search over set of coeffitients values that have been made by' +

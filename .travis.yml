@@ -36,6 +36,7 @@ script:
   - python -m resonancesml clear-classify-all -l input/librations/first50_librated_asteroids_4_-2_-1 -a input/librations/all_librated_asteroids_4_-2_-1  -c syn --clf="KNN 0" --clf="DT 0" -x 2.39 -s 0.01 -i 2 2 3 4 5
 
   - python -m resonancesml dump-config
+  - python -m resonancesml get_optimal_parameters -c syn --clf KNN -l input/librations/5J-2S-2-pure/first50
 
 after_success:
   - wc -l resonanceml-out/4J-2S-1

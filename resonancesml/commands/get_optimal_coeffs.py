@@ -8,37 +8,12 @@ from resonancesml.searcher import ASearcher
 from resonancesml.shortcuts import get_classifier_with_kwargs
 from resonancesml.shortcuts import ClfPreset
 from resonancesml.report import view_for_total_comparing
-from resonancesml.settings import params
 from itertools import product
 from .shortcuts import classify_as_dict
 from concurrent.futures import ThreadPoolExecutor as PoolExecutor
-from threading import Lock
 from asyncio.futures import Future
 from sklearn.base import clone as sklearn_clone
-
-
-class _DataLockAdapter(object):
-    """
-    Adapter for list aims to locking it for appending.
-    """
-    def __init__(self):
-        self._lock = Lock()
-        self._data = []
-
-    def append(self, value):
-        self._lock.acquire()
-        self._data.append(value)
-        self._lock.release()
-
-    @property
-    def data(self) -> list:
-        return self._data
-
-    def __len__(self) -> int:
-        return len(self._data)
-
-    def __getitem__(self, index):
-        return self._data[index]
+from .shortcuts import DataLockAdapter
 
 
 class _CoeffitientsSearcher(ASearcher):
@@ -54,7 +29,6 @@ class _CoeffitientsSearcher(ASearcher):
         p = self._classifier_params['p']
         self._coeff_vals = [(x / 10) ** (1 / p) for x in range(11)]
         self._data = None
-        self._worker_number = params()['system']['threads']
 
     def _accumulate_scores(self, features: np.ndarray, targets: np.ndarray, coeffs: dict) -> dict:
         """
@@ -97,7 +71,7 @@ class _CoeffitientsSearcher(ASearcher):
 
     def fit(self, features: np.ndarray, targets: np.ndarray) -> pd.DataFrame:
         """Saves self._data to result pandas' DataFrame and return it"""
-        self._data = _DataLockAdapter()
+        self._data = DataLockAdapter()
         self._fit(features, targets)
         columns = self._data[0].keys()
         coeffs_vs_metrics = pd.DataFrame(columns=columns, index=range(len(self._data)),
